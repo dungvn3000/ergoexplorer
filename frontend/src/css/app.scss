@@ -1,0 +1,175 @@
+// app global css in SCSS form
+@import './font/roboto-font.css';
+
+body {
+  background-color: #ebecf2;
+  color: #333;
+  font-weight: 400;
+  line-height: 1.5385;
+}
+
+.q-drawer {
+  .q-item__label--header {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 500;
+  }
+  .q-item {
+    color: white;
+    font-weight: 450;
+    &.q-router-link--exact-active {
+      background-color: #26a69a;
+    }
+
+    .q-icon {
+      color: white;
+    }
+  }
+  .q-item__section--avatar {
+    min-width: 0;
+  }
+}
+
+.navbar-brand {
+  width: 80px;
+}
+
+.navbar-light {
+  color: rgba(51, 51, 51, 0.85);
+  background-color: #fff;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+}
+
+.border-top-light {
+  border-top-color: rgba(0, 0, 0, 0.125);
+}
+
+.border-bottom-light {
+  border-bottom-color: rgba(0, 0, 0, 0.125);
+}
+
+.left-sidebar {
+  width: 170px;
+}
+
+.text-muted {
+  color: #999 !important;
+}
+
+.text-sm {
+  font-size: 0.84rem;
+}
+
+.text-warning {
+  color: #ff7043 !important;
+}
+
+.text-primary {
+  color: rgb(12, 131, 255) !important;
+}
+
+.text-primary2 {
+  color: #226a98 !important;
+}
+
+.text-info {
+  color: #00bcd4 !important;
+}
+
+.bg-light {
+  background-color: #fafafa !important;
+}
+
+.bg-indigo {
+  background-color: #3f51b5 !important;
+}
+
+.bg-green {
+  background: green !important;
+}
+
+.bg-warning {
+  background-color: #ff7043 !important;
+}
+
+.bg-danger {
+  background-color: #f44336 !important;
+}
+
+.bg-black2 {
+  background-color: #777 !important;
+}
+
+.border-top-warning {
+  border-top-color: #ff5722;
+}
+
+.border-top-secondary {
+  border-top-color: rgb(0, 188, 212);
+}
+
+a {
+  color: #2196f3;
+  text-decoration: none;
+  background-color: transparent;
+}
+
+.text-h7 {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 2rem;
+  letter-spacing: 0.0125em;
+}
+
+.text-h6 {
+  font-size: 1.1rem;
+}
+
+.q-banner {
+  border-radius: 4px;
+}
+
+.text-orange {
+  color: #ff9800;
+}
+
+.q-table {
+  th {
+    font-size: 13px;
+  }
+}
+
+.bg-blue {
+  background-color: #007dc6 !important;
+  border-color: #007dc6 !important;
+  color: #fff;
+}
+
+.q-btn {
+  .on-right {
+    margin-left: 0;
+  }
+}
+
+.table-sm {
+  tbody td {
+    height: 35px;
+  }
+}
+
+.q-chip {
+  font-size: 13px;
+  font-weight: 420;
+}
+
+p {
+  margin: 0 0 7px;
+}
+
+.pre-line {
+  white-space: pre-line !important;
+}
+
+.text-h7 {
+  font-size: 1rem;
+}

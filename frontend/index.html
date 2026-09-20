@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title><%= productName %> — Ergo blockchain explorer</title>
+    <meta name="description" content="<%= productDescription %>" />
+    <meta name="keywords" content="Ergo, ERG, blockchain explorer, Ergo explorer, blocks, transactions, addresses, tokens, EIP-4, mempool, rich list, hashrate, Autolykos" />
+    <meta name="author" content="Ergo Vietnam" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#1976d2" />
+    <meta name="application-name" content="<%= productName %>" />
+    <meta name="apple-mobile-web-app-title" content="<%= productName %>" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    <meta
+      name="viewport"
+      content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width<% if (ctx.mode.cordova || ctx.mode.capacitor) { %>, viewport-fit=cover<% } %>"
+    />
+    <link rel="canonical" href="https://explorer.erg.vn/" />
+
+    <!-- Open Graph / Twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="<%= productName %>" />
+    <meta property="og:title" content="<%= productName %> — Ergo blockchain explorer" />
+    <meta property="og:description" content="<%= productDescription %>" />
+    <meta property="og:url" content="https://explorer.erg.vn/" />
+    <meta property="og:image" content="https://explorer.erg.vn/img/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Ergo Explorer" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="<%= productName %> — Ergo blockchain explorer" />
+    <meta name="twitter:description" content="<%= productDescription %>" />
+    <meta name="twitter:image" content="https://explorer.erg.vn/img/og.png" />
+
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png" />
+    <link rel="preconnect" href="https://explorer.erg.vn" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "<%= productName %>",
+        "alternateName": "Ergo Explorer by Ergo Vietnam",
+        "url": "https://explorer.erg.vn/",
+        "description": "<%= productDescription %>",
+        "inLanguage": "en",
+        "publisher": { "@type": "Organization", "name": "Ergo Vietnam", "url": "https://erg.vn" }
+      }
+    </script>
+  </head>
+  <body>
+    <!-- quasar:entry-point -->
+    <noscript>Ergo Explorer needs JavaScript: it renders blocks, transactions, addresses and tokens of the Ergo blockchain from a live API.</noscript>
+  </body>
+</html>

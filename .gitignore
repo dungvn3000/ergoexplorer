@@ -1,0 +1,16 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+*.swp
+
+# Scratch
+tmp/
+
+# Operator scripts for the erg.vn servers (not part of the project)
+deploy_backend.sh
+deploy_frontend.sh
+
+# Subversion working copy metadata
+.svn/

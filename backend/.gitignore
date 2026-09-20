@@ -1,0 +1,9 @@
+target/
+.idea/
+*.iml
+.DS_Store
+tmp/
+
+# Site-specific configuration and deployment files are kept out of the public repo
+conf/
+deploy/

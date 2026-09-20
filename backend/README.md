@@ -1,0 +1,203 @@
+# Ergo Explorer — backend
+
+REST API for the explorer frontend (`../frontend`). Indexes the chain from Ergo full nodes into
+**MySQL** (database `ergo`) and answers from the DB; anything not indexed yet is answered by the node's
+own extra indexer (`/blockchain/*`), so the explorer works while the first sync runs.
+
+Stack: Java 21, Jooby 4.5 + Netty, Guice (`jooby-guice`), Lombok, logback, stork, Docker. REST answers are wrapped by
+`web/JsonResult` and rendered by `web/JsonModule` (its `errorCode` becomes the HTTP status).
+
+## Run
+
+```bash
+mvn process-classes && mvn jooby:run   # dev, http://localhost:8080
+mvn package                            # target/stork/bin/ergo_explorer --run prod   (or --start prod)
+docker build -t ergo-explorer-api .    # port 8080
+```
+
+Systemd deployment: `deploy/ergo-explorer.service`, `deploy/env.example`, `deploy/README.md`.
+
+`prod` activates `conf/application.prod.conf` on top of `application.conf` (Jooby's `application.env`,
+passed as a bare argument or `-Dapplication.env=prod`); without it the dev values (`root/root`) apply.
+`DB_URL`, `DB_USERNAME`, `DB_PASSWORD` environment variables override the DB settings in any environment.
+
+Entities are Ebean beans and **must be enhanced**: Maven does it in `process-classes` (`ebean-maven-plugin`,
+packages in `src/main/resources/ebean.mf`). Running `Main` straight from the IDE on IDE-compiled classes
+fails with `BeanNotEnhancedException` — install the *Ebean enhancer* plugin (IntelliJ/Eclipse) or run via Maven.
+
+Config in `conf/application.conf` (`application.prod.conf` overrides in prod):
+
+| key | meaning |
+|---|---|
+| `ergo.nodes` | full nodes; requests are load-balanced round-robin, a failing node is retried on the next one and rested for 30s (`https://sv1.erg.vn`, `https://sv2.erg.vn`) |
+| `ergo.timeoutSeconds` | per-call timeout |
+| `ergo.tokens` | token ids listed on `/api/v1/tokens` (the node cannot enumerate tokens) |
+| `ergo.labels` | optional `{ "<address>" = "Pool name" }` shown instead of the hash |
+| `cors.origins` | browser origins allowed to call the API |
+| `db.connection.*` | MySQL (`jdbc:mysql://localhost:3306/ergo`), Flyway creates the schema on start |
+| `indexer.enabled` | run the chain indexer in this process |
+| `indexer.startHeight` | 1 = full history (needed for correct balances); higher = recent history only |
+| `indexer.batchSize` | blocks fetched in parallel and written in one transaction (64) |
+| `indexer.pollSeconds` | polling interval once caught up (10) |
+
+## Endpoints
+
+All answers are `{ "data": ... }` or `{ "errorCode": 404, "error": "..." }`; node failures give 502.
+
+| endpoint | notes |
+|---|---|
+| `GET /api/v1/info` | explorer + node version, height, peers |
+| `GET /api/v1/networkState` | dashboard: hashrate (difficulty / 120 s), difficulty, avg block time, supply (`/emission/at`), mempool, 30-day hashrate, miners of the last 24 h |
+| `GET /api/v1/blocks?page&rowsPerPage` | newest first; `total` = chain height |
+| `GET /api/v1/blocks/latest?limit` | |
+| `GET /api/v1/blocks/{height or id}` | header + body stats + every transaction (inputs resolved through the indexer) |
+| `GET /api/v1/transactions/latest?limit` | non-reward txs of the newest blocks, max 3 per block |
+| `GET /api/v1/transactions/{id}` | confirmed (indexer) or pending (mempool) |
+| `GET /api/v1/info` | versions, node + index heights, node health, `db` (index size on disk from `information_schema`) |
+| `GET /api/v1/addresses/{address}?page&rowsPerPage` | balance, tokens, history with direction/amount per tx |
+| `GET /api/v1/addresses/{address}/boxes?page&rowsPerPage` | unspent boxes of the address, newest first: `{items:[box], total}` |
+| `GET /api/v1/tokens` · `/tokens/{id}` | metadata, issuing tx, holder count, top holders, recent transfers |
+| `GET /api/v1/tokens/{id}/holders?page&rowsPerPage` | token rich list: `{items:[{rank,address,amount}], total}` |
+| `GET /api/v1/charts` · `/charts/{name}?days=` | daily series `{name, unit, points:[{t, v}]}`: hashrate, difficulty, blocks, blockTime, transactions, fees, avgFee, blockSize, emission, circulatingSupply, boxesCreated/Spent, utxoSize, activeAddresses, fundedAddresses, tokenTransfers, tokensMinted, mempoolTxs/Bytes (hourly) |
+| `GET /api/v1/richlist?page&rowsPerPage` | ERG rich list: `{items:[{rank,address,amount,boxCount}], total, synced, indexedHeight}` |
+| `GET /api/v1/mempool/transactions` | `{ items, total, size, fees }` |
+| `GET /api/v1/boxes/{id}` | |
+| `GET /api/v1/search?q=` | resolves height / block id / tx id / token id / box id / address → `{ type, id }` |
+
+## MCP server (AI agents)
+
+The same services are exposed to AI agents over the [Model Context Protocol](https://modelcontextprotocol.io)
+at `POST /api/mcp` (Streamable HTTP, stateless: one request per call, no sessions — nothing is kept
+per client, in line with the privacy policy). Tools live in `mcp/ExplorerTools` (Jooby MCP module,
+`@McpTool` methods; `ExplorerToolsMcp_` is generated by the annotation processor):
+`getNetworkState`, `getBlock`, `listBlocks`, `getTransaction`, `getAddress`, `getAddressBoxes`,
+`getBox`, `getToken`, `getTokenHolders`, `listTokens`, `getRichList`, `listCharts`, `getChart`,
+`getMempool`, `search`, `getStatus`. Amounts are nanoERG, token amounts raw integers.
+
+Every tool answers `{ asOf, mutable, data }` (`ExplorerTools.Stamped`): `asOf` = `{ height, indexedHeight,
+synced, timestamp, responseId }` says at which chain / index height and time the answer was computed
+(`responseId` is random and not stored), `mutable` is true when the data can change with the next block
+(balances, UTXOs, mempool, stats, rich lists, charts, blocks / txs within 10 confirmations, unspent boxes)
+and false for final data (deep blocks and txs, spent boxes, chart names, search results). The
+`instructions` tell agents to re-fetch mutable data instead of reusing a cached answer. The REST API is
+unchanged.
+
+Client configuration (Claude Desktop / Claude Code / Cursor and any Streamable-HTTP client):
+
+```json
+{ "mcpServers": { "ergo-explorer": { "url": "https://explorer.erg.vn/api/mcp" } } }
+```
+
+`claude mcp add --transport http ergo-explorer https://explorer.erg.vn/api/mcp`
+
+OpenCode (`opencode.json` in the project or `~/.config/opencode/`):
+
+```json
+{ "$schema": "https://opencode.ai/config.json", "mcp": { "ergo-explorer": { "type": "remote", "url": "https://explorer.erg.vn/api/mcp", "enabled": true } } }
+```
+
+Settings in `application.conf` under `mcp."ergo-explorer".*` (endpoint, transport, instructions).
+In `dev` an inspector UI is mounted at `/mcp-inspector`. `jsonschema-generator` is pinned to the 4.x
+line: the 5.x that `jooby-mcp-jackson2` pulls is Jackson 3 and breaks the tool input schemas.
+
+## Chain index (MySQL)
+
+`index/ChainIndexer` pulls full blocks from the nodes (`/blocks/chainSlice` for headers, `/blocks/{id}`
+in parallel) and `index/BlockWriter` stores them with JDBC batches, one transaction per batch.
+The schema is one baseline migration (`src/main/resources/db/migration/V1__schema.sql`); changes go in
+further `V2__...` files. An index built by the earlier incremental migrations (`V2026.09.*`) has the same
+tables: stop the backend, `DROP TABLE flyway_schema_history`, start it again and Flyway records a baseline at
+version 1 (`baselineOnMigrate`) without touching the data. To rebuild
+from scratch use `deploy/reset-index.sql`.
+
+### Storage design
+
+Four rules keep the index small and the writes sequential — with ~57 M boxes the difference between
+"fits in the buffer pool" and "random disk reads on every spend" is the whole write speed:
+
+1. **Hashes are `BINARY(32)`**, never `CHAR(64)`. A `CHAR(64)` column in a utf8mb4 table reserves
+   64 × 4 = 256 bytes per index entry; `BINARY(32)` uses 32. Block/tx/box/token ids, `tree_hash`,
+   `addr_hash`, `pow` fields and roots are all binary; the API converts to hex at the boundary.
+2. **Sequential keys in chain order**: `block.height`, `tx.gix`, `box.gix` (global indexes assigned by
+   the writer; `script.id` likewise). Every insert appends to its clustered index instead of landing on
+   a random page keyed by hash; the hash is a narrow `UNIQUE` secondary key. Cross references
+   (`box.tx_gix`, `box_spent.tx_gix`, `tx_input.box_gix`, `token.box_gix`) are 8-byte integers joined
+   through primary keys.
+3. **ErgoTree and address live once, in `script`.** They are 1:1 (the address is a function of the
+   tree) and contracts repeat millions of times; a box stores only `script_id`. Balances, holders and
+   active-address rollups are keyed by `script_id` as well. The writer keeps an in-memory
+   tree → id cache (500 k entries) and inserts new scripts with `INSERT IGNORE` + read-back by
+   `tree_hash`, so a batch costs one small round-trip for new contracts and none for known ones.
+4. **Box rows are never updated.** A spend is one 24-byte row in `box_spent`; "unspent" = no row.
+
+Estimated size at full mainnet: ~12–18 GB (v1 with hash keys and per-box addresses/trees would have
+been 45–60 GB). Observed write cost: 36–48 ms per batch of 100 blocks in the 2019 range, unchanged
+in the busy 2021–2022 range once the buffer pool holds the hot indexes.
+
+### Tables
+
+| table | key | rows |
+|---|---|---|
+| `script` | `id` | ErgoTree + address (1:1), `tree_hash` / `addr_hash` UNIQUE, `p2pk` flag |
+| `block` | `height` | header + `miner_script_id`, emission / reemitted / fees, PoW solution |
+| `tx` | `gix` | hash, block, index, `coinbase` (the emission tx — not always index 0 in early blocks), size, fee |
+| `box` | `gix` | hash, `tx_gix`, index, value, `script_id`, creation height, raw registers JSON (genesis boxes: height 0, `tx_gix` 0) |
+| `box_spent` | `box_gix` | `tx_gix`, height of the spend; index on height for rollback |
+| `box_asset` | `box_gix, idx` | `token_id`, amount; index `(token_id, box_gix)` |
+| `tx_input` | `tx_gix, data_input, idx` | `box_gix` of each input / data input |
+| `token` | `id` | issuing `box_gix` / `tx_gix`, height, name / description / decimals (R4–R6), emission amount |
+| `address_balance` | `script_id` | aggregate: ERG in unspent boxes + their count, `tx_count`, first / last `tx_gix`; index on `nano_erg` (rich list) |
+| `address_tx` | `script_id, tx_gix` | one row per transaction touching the address; newest first = reverse PK scan (address history) |
+| `token_holder` | `token_id, script_id` | aggregate: amount held; index `(token_id, amount)` (token rich lists) |
+| `daily_stats` | `day` | per UTC day: blocks, txs, fees, size, difficulty sum, emission, boxes created/spent, token transfers/mints; end-of-day snapshots (funded addresses, UTXO size) |
+| `daily_address` | `day, script_id` | active addresses per day |
+| `mempool_sample` | `ts` | one row per minute from the node (`index/MempoolSampler`, one year retention) |
+| `indexer_state` | `id` | last fully indexed height and block id |
+
+Data access follows the template: one Ebean entity per table (`models/`, hashes as `byte[]`), generated
+query beans (`models/query/Q*`), one DAO per table (`daos/`, `BaseDao` = `BeanRepository`), and
+`db/ChainRepository` composing them into DTOs (joins `script` for addresses and `tx` for hashes in bulk).
+Bulk writes stay on JDBC batches (`index/BlockWriter`). TEXT columns are mapped without `@Lob`:
+Ebean would lazy-load them, which does not work with `byte[]` keys and costs one query per row.
+
+### Write path (one batch)
+
+1. Resolve the scripts of every output and every miner (cache → `INSERT IGNORE` → read back).
+2. Insert blocks, txs (`gix`), boxes (`gix`), assets, tokens.
+3. Resolve every input / data input to a box: from this batch or `SELECT … FROM box WHERE id IN (…)`
+   (with the assets of spent boxes, needed for the aggregates). Insert `tx_input` and `box_spent`.
+4. Apply the aggregate deltas **per UTC day** (outputs add, spends subtract; `address_tx` rows and the
+   per-address tx counters come from the same pass; zero token-holder rows pruned) and
+   take the end-of-day snapshots between days, so `daily_stats.funded_addresses` / `utxo_boxes` are
+   exact at each day boundary even when a batch spans several days.
+5. Advance `indexer_state` with an optimistic lock (`WHERE height = <expected>`); a second writer on
+   the same DB is detected (`ConflictException`) and the indexer resyncs from the DB.
+
+Reorgs: a batch whose first block does not extend the stored block below it calls `rollback(height)`,
+which reverses the aggregates with grouped `INSERT … ON DUPLICATE KEY UPDATE` statements (target
+columns qualified, otherwise MySQL reports them ambiguous), deletes the block's rows and moves
+`indexer_state` down; the loop then re-fetches. The 3 genesis boxes (`/utxo/genesis`) are indexed at
+height 0 so every input resolves.
+
+`GET /api/v1/info` reports `indexedHeight` and `indexSynced`; `db/IndexStatus` decides per request
+whether the DB can answer (blocks/txs: when the height is indexed; addresses, rich lists, holders and
+charts: only meaningful once the index is complete from genesis).
+
+### Sync time and MySQL tuning
+
+A full mainnet sync (~1.9 M blocks) takes many hours; throughput is bounded by node fetches
+(`indexer.batchSize`, `NodeClient` in-flight limit) and by page I/O. **Tune the database before
+syncing**: `conf/mysql-recommended.cnf` (MySQL 8) or `conf/mariadb-recommended.cnf` (MariaDB 10.6+ —
+no `innodb_redo_log_capacity` / `innodb_buffer_pool_instances` there; use `innodb_log_file_size`).
+Buffer pool 8G, redo log 4G, `innodb_flush_log_at_trx_commit=2`, binlog off. Watch
+`SHOW GLOBAL STATUS LIKE 'Innodb_buffer_pool_wait_free'` — it should stay at 0; `deploy/db-diag.sh`
+prints the relevant settings and counters.
+
+## Design notes
+
+- **Addresses are computed locally** from ErgoTrees (`utils/ErgoAddress`, Blake2b-256 + base58), so a block with hundreds of boxes needs no `/utils/ergoTreeToAddress` calls.
+- **Registers** R4–R9 are decoded for the common Sigma types (`utils/Registers`); unknown types keep their raw hex.
+- **Miner / reward / fees** come from the block itself: miner = P2PK of `powSolutions.pk`; the emission (coinbase) tx is the one whose output 0 carries the emission contract's tree (usually first, but early blocks placed it before the fee tx); reward = its second output minus the re-emission tokens it carries (EIP-27); fees = the single output of the last tx when it pays the miner's tree.
+- **Caches** (Caffeine): immutable objects (blocks, confirmed txs, token metadata, headers below the reorg depth) stay; `/info`, stats and mempool expire in seconds. Confirmations are recomputed on each read. Loaders never run inside a cache lock — a blocking node call inside `ConcurrentHashMap.compute` pins virtual threads and deadlocks (`utils/Memo`).
+- **Fan-out** uses virtual threads (`utils/Parallel`); the number of in-flight node calls is capped in `NodeClient` (32).
+- **Address history** is built from `/blockchain/box/byAddress` (fast) + `transaction/byId` in parallel, because the node's `transaction/byAddress` costs ~0.8 s per returned tx. Pages are therefore box-based and approximate for very busy addresses.

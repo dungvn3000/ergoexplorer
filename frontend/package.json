@@ -1,0 +1,56 @@
+{
+  "name": "ergo-explorer-frontend",
+  "version": "1.0.0",
+  "description": "Ergo blockchain explorer: blocks, transactions, addresses, EIP-4 tokens, mempool, rich lists and network charts for Ergo mainnet, indexed from full nodes by Ergo Vietnam.",
+  "productName": "Ergo Explorer",
+  "author": "https://x.com/dungvn3000",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint -c ./eslint.config.js \"./src*/**/*.{js,cjs,mjs,vue}\"",
+    "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
+    "test": "echo \"No test specified\" && exit 0",
+    "dev": "VITE_APP_VERSION=$npm_package_version quasar dev",
+    "build": "VITE_APP_VERSION=$npm_package_version quasar build",
+    "postinstall": "quasar prepare"
+  },
+  "dependencies": {
+    "@quasar/extras": "^2.0.0",
+    "@vueuse/core": "^14.1.0",
+    "axios": "^1.2.1",
+    "chart.js": "^4.5.1",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "date-fns": "^4.1.0",
+    "dompurify": "^3.3.1",
+    "format-money-js": "^1.6.3",
+    "lodash": "^4.17.21",
+    "pinia": "^3.0.4",
+    "qrcode": "^1.5.4",
+    "quasar": "^2.33.0",
+    "vue": "^3.5.40",
+    "vue-chartjs": "^5.3.4",
+    "vue-i18n": "^11.3.0",
+    "vue-router": "^5.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@intlify/unplugin-vue-i18n": "^11.0.0",
+    "@quasar/app-vite": "^2.5.1",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "autoprefixer": "^10.4.27",
+    "eslint": "^9.39.4",
+    "eslint-plugin-vue": "^10.8.0",
+    "globals": "^17.4.0",
+    "postcss": "^8.5.8",
+    "prettier": "^3.8.1",
+    "vite": "^8.0.16",
+    "vite-plugin-checker": "^0.12.0",
+    "vue-eslint-parser": "^10.4.0"
+  },
+  "engines": {
+    "node": "^28 || ^26 || ^24 || ^22 || ^20",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  },
+  "packageManager": "yarn@4.12.0"
+}

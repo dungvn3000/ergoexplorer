@@ -1,0 +1,937 @@
+<title>Ergo Explorer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F5F4F0; --surface:#FFFFFF; --surface-2:#FAF9F6; --surface-3:#F0EEE8;
+  --ink:#1A1916; --muted:#6E6A62; --faint:#9C9890;
+  --line:#E3E0D8; --line-strong:#CDC9BF;
+  --accent:#E4520F; --accent-ink:#B9400A; --accent-soft:#FBE9DF; --accent-line:#F3C3AD;
+  --good:#1C8A57; --good-soft:#E1F3E9;
+  --warn:#B8730A; --warn-soft:#FBF0DA;
+  --crit:#C23B2B; --crit-soft:#FAE3DF;
+  --shadow:0 1px 2px rgba(26,25,22,.06),0 4px 16px rgba(26,25,22,.05);
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#141311; --surface:#1C1B18; --surface-2:#211F1B; --surface-3:#282620;
+    --ink:#ECE9E2; --muted:#A39E94; --faint:#726E65;
+    --line:#2D2B26; --line-strong:#403D35;
+    --accent:#FF6A2C; --accent-ink:#FF8B5A; --accent-soft:#3A2115; --accent-line:#6A3A22;
+    --good:#4CC68A; --good-soft:#15301F;
+    --warn:#E0A03A; --warn-soft:#332711;
+    --crit:#F0705E; --crit-soft:#3A1A15;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141311; --surface:#1C1B18; --surface-2:#211F1B; --surface-3:#282620;
+  --ink:#ECE9E2; --muted:#A39E94; --faint:#726E65;
+  --line:#2D2B26; --line-strong:#403D35;
+  --accent:#FF6A2C; --accent-ink:#FF8B5A; --accent-soft:#3A2115; --accent-line:#6A3A22;
+  --good:#4CC68A; --good-soft:#15301F;
+  --warn:#E0A03A; --warn-soft:#332711;
+  --crit:#F0705E; --crit-soft:#3A1A15;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);font-feature-settings:"tnum" 0}
+a{color:var(--accent-ink);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.faint{color:var(--faint)}
+.hash{font-family:var(--mono);font-size:13px;word-break:break-all}
+.hash-full{font-family:var(--mono);font-size:12.5px;word-break:break-all;line-height:1.55}
+h1,h2,h3{margin:0;text-wrap:balance;font-weight:600}
+h1{font-size:22px;letter-spacing:-.01em}
+h2{font-size:15px}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+
+/* ── Header ───────────────────────────── */
+.topbar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1240px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:20px;height:56px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+.brand:hover{text-decoration:none}
+.brand svg{display:block}
+.nav{display:flex;gap:2px;margin-left:4px;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{color:var(--muted);padding:6px 10px;border-radius:6px;font-weight:500;white-space:nowrap}
+.nav a:hover{color:var(--ink);background:var(--surface-3);text-decoration:none}
+.nav a.on{color:var(--ink);background:var(--surface-3)}
+.topbar .search{margin-left:auto;flex:1;max-width:460px;min-width:0}
+.netpill{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--muted);padding:5px 10px;border:1px solid var(--line);border-radius:999px;white-space:nowrap}
+.netpill i{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--good-soft)}
+@media (max-width:820px){ .topbar .search{display:none} .netpill span{display:none} }
+
+.search{position:relative;display:flex;align-items:center}
+.search svg{position:absolute;left:12px;color:var(--faint);pointer-events:none}
+.search input{width:100%;height:38px;padding:0 12px 0 38px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface-2);color:var(--ink);font:inherit;font-size:13.5px}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search.big input{height:52px;font-size:15px;padding-left:46px;background:var(--surface);box-shadow:var(--shadow)}
+.search.big svg{left:16px}
+
+/* ── Layout ───────────────────────────── */
+.wrap{max-width:1240px;margin:0 auto;padding:24px 20px 60px}
+.hero{background:var(--surface);border-bottom:1px solid var(--line)}
+.hero-in{max-width:1240px;margin:0 auto;padding:36px 20px 28px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.hero .search{width:100%;max-width:760px}
+.hero .eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink)}
+.hero h1{font-size:26px}
+.hints{display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px;color:var(--muted)}
+.hints a{color:var(--muted);border:1px solid var(--line);padding:3px 9px;border-radius:999px;background:var(--surface-2)}
+.hints a:hover{color:var(--ink);border-color:var(--line-strong);text-decoration:none}
+
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.stat{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .k{font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-size:20px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
+.stat .d{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat .d.up{color:var(--good)} .stat .d.down{color:var(--crit)}
+@media (max-width:1000px){ .stats{grid-template-columns:repeat(3,1fr)} }
+@media (max-width:560px){ .stats{grid-template-columns:repeat(2,1fr)} .stat .v{font-size:17px} }
+
+.grid{display:grid;gap:20px;margin-bottom:20px}
+.grid.c2{grid-template-columns:1fr 1fr}
+.grid.c21{grid-template-columns:2fr 1fr}
+@media (max-width:900px){ .grid.c2,.grid.c21{grid-template-columns:1fr} }
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel-h h2{display:flex;align-items:center;gap:8px}
+.panel-h .more{font-size:12.5px;font-weight:500}
+.panel-b{padding:16px}
+.live{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.live{animation:none}}
+
+/* ── Tables ───────────────────────────── */
+.tscroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--surface-2)}
+td.r,th.r{text-align:right}
+td.num{font-variant-numeric:tabular-nums}
+.panel table th:first-child,.panel table td:first-child{padding-left:16px}
+.panel table th:last-child,.panel table td:last-child{padding-right:16px}
+.panel .tscroll+.panel-f{border-top:0}
+
+/* rows list (home panels) */
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);min-width:0}
+.row:last-child{border-bottom:0}
+.row{color:var(--ink)}
+.row:hover{background:var(--surface-2);text-decoration:none}
+.row .main .t .num{color:var(--accent-ink)}
+.row .ico{width:36px;height:36px;border-radius:8px;background:var(--surface-3);display:grid;place-items:center;color:var(--muted);font-size:11px;font-weight:600;font-family:var(--mono)}
+.row .ico.tx{background:var(--accent-soft);color:var(--accent-ink)}
+.row .main{min-width:0;display:flex;flex-direction:column;gap:1px}
+.row .main .t{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .main .s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .side{text-align:right;display:flex;flex-direction:column;gap:1px;font-variant-numeric:tabular-nums}
+.row .side .t{font-weight:500;white-space:nowrap}
+.row .side .s{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* ── Chips / pills ────────────────────── */
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap;line-height:1.5}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.pill.neutral{background:var(--surface-3);color:var(--muted)}
+.pill.accent{background:var(--accent-soft);color:var(--accent-ink)}
+.tok{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:2px 8px 2px 4px;border:1px solid var(--line);border-radius:999px;background:var(--surface-2);color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.tok:hover{border-color:var(--line-strong);text-decoration:none}
+.tok i{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-size:8.5px;font-weight:700;color:#fff;font-style:normal}
+.tag{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--surface-3);color:var(--muted);letter-spacing:.03em}
+.lbl{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.lbl .name{font-weight:500;white-space:nowrap}
+.lbl .name.contract{color:var(--accent-ink)}
+
+/* ── Page head ────────────────────────── */
+.crumbs{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-bottom:10px}
+.crumbs a{color:var(--muted)}
+.crumbs .sep{color:var(--faint)}
+.phead{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 20px;margin-bottom:20px}
+.phead .id{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.phead .id .title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.phead .acts{display:flex;gap:6px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);cursor:pointer;font-size:13px;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--surface-2);text-decoration:none}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.icon{width:32px;padding:0;justify-content:center}
+.copy{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:0;background:transparent;border-radius:5px;color:var(--faint);cursor:pointer;vertical-align:middle;padding:0}
+.copy:hover{background:var(--surface-3);color:var(--ink)}
+.idline{display:flex;align-items:center;gap:6px;min-width:0}
+.idline .hash{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+
+/* key/value */
+.kv{display:grid;grid-template-columns:180px 1fr;font-size:13px}
+.kv>div{padding:9px 0;border-bottom:1px solid var(--line);min-width:0}
+.kv>div:nth-last-child(-n+2){border-bottom:0}
+.kv .k{color:var(--muted);padding-right:12px}
+.kv .v{word-break:break-all}
+.kv2{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}
+@media (max-width:900px){ .kv2{grid-template-columns:1fr} }
+@media (max-width:520px){ .kv{grid-template-columns:1fr} .kv .k{padding:9px 0 0;border-bottom:0} .kv .v{padding-top:2px} }
+
+/* tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);padding:0 8px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:11px 10px;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+.tabs button .n{font-size:11.5px;color:var(--faint);margin-left:5px;font-variant-numeric:tabular-nums}
+.tabpane[hidden]{display:none}
+
+/* boxes */
+.io{display:grid;grid-template-columns:1fr 32px 1fr;gap:12px;align-items:start}
+@media (max-width:900px){ .io{grid-template-columns:1fr} .io .arrow{transform:rotate(90deg);justify-self:center} }
+.io .arrow{display:grid;place-items:center;color:var(--faint);padding-top:44px}
+.io .arrow svg{display:block}
+.iocol{background:var(--surface);border:1px solid var(--line);border-radius:10px;min-width:0}
+.iocol .ioh{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.iocol .ioh .sum{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;font-size:12.5px}
+.box{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;min-width:0}
+.box:last-child{border-bottom:0}
+.box .bh{display:flex;justify-content:space-between;gap:10px;align-items:baseline;min-width:0}
+.box .bh .a{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:12.5px}
+.box .bh .val{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.box .bm{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted);align-items:center}
+.box .bm .idx{font-family:var(--mono);color:var(--faint)}
+.box .toks{display:flex;flex-wrap:wrap;gap:5px}
+.box details{font-size:12px}
+.box summary{cursor:pointer;color:var(--muted);user-select:none;list-style:none;display:inline-flex;align-items:center;gap:5px}
+.box summary::-webkit-details-marker{display:none}
+.box summary::before{content:"";width:0;height:0;border:4px solid transparent;border-left:5px solid var(--faint);margin-left:2px;transition:transform .15s}
+.box details[open] summary::before{transform:rotate(90deg)}
+.regs{margin-top:8px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-family:var(--mono);font-size:11.5px}
+.regs .rk{color:var(--accent-ink);font-weight:600}
+.regs .rv{color:var(--muted);word-break:break-all}
+.regs .rt{color:var(--faint)}
+
+/* tx card in block */
+.txcard{border-bottom:1px solid var(--line);padding:12px 16px;display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;align-items:start}
+.txcard:last-child{border-bottom:0}
+.txcard .h{grid-column:1/-1;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.txcard .lst{display:flex;flex-direction:column;gap:3px;font-size:12.5px;min-width:0}
+.txcard .lst>div{display:flex;justify-content:space-between;gap:10px;min-width:0}
+.txcard .lst .a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:12px}
+.txcard .lst .v{white-space:nowrap;font-variant-numeric:tabular-nums}
+.txcard .lst .cap{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);font-weight:600}
+@media (max-width:700px){ .txcard{grid-template-columns:1fr} }
+
+/* charts */
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:5px 8px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-115%);display:none;font-variant-numeric:tabular-nums}
+.chart .tip b{font-weight:600}
+.bars{display:flex;flex-direction:column;gap:9px;font-size:12.5px}
+.bar{display:grid;grid-template-columns:110px 1fr 56px;gap:10px;align-items:center}
+.bar .track{height:14px;background:var(--surface-3);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:3px 4px 4px 3px;opacity:.85}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.bar .l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* pager */
+.panel-f{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+.pager{display:flex;gap:4px;align-items:center}
+.pager .cur{padding:0 8px;font-variant-numeric:tabular-nums}
+
+/* address balance */
+.balance{display:flex;flex-wrap:wrap;gap:24px 40px;align-items:flex-end}
+.balance .big{font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+.balance .big small{font-size:14px;color:var(--muted);font-weight:500;margin-left:4px}
+.balance .sub{font-size:12.5px;color:var(--muted)}
+.qr{width:96px;height:96px;border:1px solid var(--line);border-radius:8px;padding:6px;background:#fff;flex:none}
+.qr svg{display:block;width:100%;height:100%}
+.dir{font-size:11px;font-weight:700;padding:1px 6px;border-radius:4px;letter-spacing:.04em}
+.dir.in{background:var(--good-soft);color:var(--good)}
+.dir.out{background:var(--surface-3);color:var(--muted)}
+.dir.self{background:var(--warn-soft);color:var(--warn)}
+
+.tokicon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none}
+.foot{max-width:1240px;margin:0 auto;padding:24px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted)}
+.foot a{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:10px}
+.errbox{max-width:560px;margin:60px auto;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.errbox .code{font-family:var(--mono);color:var(--faint);font-size:12px}
+.sample{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);background:var(--warn-soft);padding:2px 8px;border-radius:4px}
+</style>
+
+<div id="app"></div>
+<div class="toast" id="toast">Copied</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   Sample chain data — deterministic, seeded, generated on load.
+   Everything here is placeholder data shaped like Ergo mainnet.
+   ═══════════════════════════════════════════════════════════════ */
+const NANO = 1e9;
+const TIP = 1548210;
+const NOW = Date.now() - 41000;              // tip block was ~41s ago
+const MAX_SUPPLY = 97739924;
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function rng(seed){ let s = (seed >>> 0) || 7; return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296); }
+function seedOf(str){ let h = 2166136261; for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function hex(r, n){ let s = ''; for (let i = 0; i < n; i++) s += '0123456789abcdef'[r() * 16 | 0]; return s; }
+function b58(r, n, first){ let s = first || ''; while (s.length < n) s += B58[r() * 58 | 0]; return s; }
+function pick(r, arr){ return arr[r() * arr.length | 0]; }
+
+const POOLS = [
+  { name: '2Miners',    w: 0.34 }, { name: 'WoolyPooly', w: 0.19 }, { name: 'HeroMiners', w: 0.14 },
+  { name: 'K1Pool',     w: 0.11 }, { name: 'Nanopool',   w: 0.09 }, { name: '666pool',    w: 0.07 },
+  { name: 'Solo miner', w: 0.06 },
+];
+POOLS.forEach(p => { const r = rng(seedOf('pool:' + p.name)); p.address = b58(r, 51, '9'); });
+function pickPool(r){ let x = r(), acc = 0; for (const p of POOLS){ acc += p.w; if (x <= acc) return p; } return POOLS[0]; }
+
+const TOKENS = [
+  { id:'03faf2cb329f2e90d6d23b58d91bbb6c046aa143261cc21f52fbe2824bfcbf04', name:'SigUSD',  dec:2, supply:10000000000,     desc:'Stablecoin issued by the SigmaUSD protocol (AgeUSD), pegged to USD and backed by ERG reserves.', color:'#2E7D5B' },
+  { id:'003bd19d0187117f130b62e1bcab0939929ff5c7709f843c5c4dd158949285d0', name:'SigRSV',  dec:0, supply:10000000000,     desc:'Reserve coin of the SigmaUSD protocol. Absorbs ERG price volatility on behalf of SigUSD holders.', color:'#6D4C9F' },
+  { id:'8b08cdd5449a9592a9e79711d7d79a4b768a3d3b4b7d4f7e0f4e0a24c9d41b1c', name:'RSN',     dec:3, supply:1000000000000,   desc:'Rosen Bridge governance and watcher collateral token.', color:'#B84A2A' },
+  { id:'0cd8c9f416e5b1ca9f986a7f10a84191dfb85941619e49e53c0dc30ebf83324b', name:'COMET',   dec:0, supply:21000000000,     desc:'Meme token. No utility, plenty of gravity.', color:'#2F5FA8' },
+  { id:'d71693c49a84fbbecd4908c94813b46514b18b67a99952dc1e6e4791556de413', name:'ergopad', dec:2, supply:40000000000,     desc:'ergopad launchpad token.', color:'#1F7A8C' },
+  { id:'1fd6e032e8476c4aa54c18c1a308dce83940e8f4a28f576440513ed7326ad489', name:'Paideia', dec:4, supply:2000000000000,   desc:'Paideia DAO toolkit governance token.', color:'#8A6B1F' },
+  { id:'9a06d9e545a41fd51eeffc5e20d818073bf820c635e2a9d922269913e0de369d', name:'SPF',     dec:6, supply:1000000000000000,desc:'Spectrum Finance protocol token.', color:'#5B3F8F' },
+  { id:'472c3d4ecaa08fb7392ff041ee2e6af75f4a558810a74b28600549d5392810e8', name:'NETA',    dec:6, supply:100000000000000, desc:'anetaBTC governance token.', color:'#8C2F6B' },
+  { id:'e023c5f382b6e96fbd878f6811aac73345489032157ad5affb84aefd4956c297', name:'rsBTC',   dec:8, supply:2100000000000000,desc:'Bitcoin bridged to Ergo through Rosen Bridge.', color:'#C8781A' },
+];
+const tokById = Object.fromEntries(TOKENS.map(t => [t.id, t]));
+
+// well-known addresses shown with a label
+const LABELS = {};
+function label(addr, name, contract){ LABELS[addr] = { name, contract: !!contract }; }
+POOLS.forEach(p => label(p.address, p.name + ' payout'));
+const KNOWN = [
+  ['SigmaUSD bank', true], ['Spectrum ERG/SigUSD pool', true], ['Rosen bridge lock', true],
+  ['Ergo Foundation treasury', true], ['Re-emission contract', true], ['ErgoDEX order', true],
+  ['Mining fee contract', true],
+];
+KNOWN.forEach(([n, c]) => { const r = rng(seedOf('known:' + n)); const a = b58(r, 62, c ? pick(r, ['2i', '3W', '4M', '5H']) : '9'); label(a, n, c); });
+const knownAddr = name => Object.keys(LABELS).find(a => LABELS[a].name === name);
+const EMISSION_ADDR = knownAddr('Re-emission contract');
+const FEE_ADDR = knownAddr('Mining fee contract');
+
+// ── blocks ─────────────────────────────
+const blocks = [];      // newest first, index 0 = tip
+const byId = {}, byHeight = {};
+(function genBlocks(){
+  let ts = NOW;
+  let diff = 1.612e15;
+  for (let i = 0; i < 400; i++){
+    const h = TIP - i;
+    const r = rng(seedOf('blk:' + h));
+    const txCount = i === 3 ? 1 : 1 + Math.floor(r() * r() * 48);
+    const pool = pickPool(r);
+    const size = 780 + Math.round(txCount * (420 + r() * 1400));
+    const fees = Math.round(txCount * 1100000 * (1 + r() * 1.8));
+    const b = {
+      height: h, id: hex(r, 64), parentId: null, timestamp: ts, txCount, size,
+      miner: pool, minerAddress: pool.address, difficulty: diff, nBits: 0x1c5a7c6a + (r() * 900000 | 0),
+      reward: 18 * NANO, fees, votes: r() < 0.08 ? '8,0,0' : '0,0,0', version: 3,
+      stateRoot: hex(r, 66), txRoot: hex(r, 64), adRoot: hex(r, 64), extHash: hex(r, 64),
+      pow: { pk: '02' + hex(r, 64), w: '02' + hex(r, 64), n: hex(r, 16), d: 0 },
+    };
+    blocks.push(b); byId[b.id] = b; byHeight[h] = b;
+    ts -= Math.round(1000 * (35 + r() * 190));
+    diff *= 1 + (r() - 0.5) * 0.004;
+  }
+  blocks.forEach((b, i) => { b.parentId = blocks[i + 1] ? blocks[i + 1].id : hex(rng(seedOf('blk:' + (b.height - 1))), 64); });
+})();
+
+function getBlock(key){
+  if (/^\d+$/.test(key)){ const h = +key; if (byHeight[h]) return byHeight[h]; if (h <= TIP && h > 0) return synthBlock(h); return null; }
+  if (byId[key]) return byId[key];
+  if (/^[0-9a-f]{64}$/.test(key)) return synthBlock(TIP - 400 - (seedOf(key) % 900000), key);
+  return null;
+}
+function synthBlock(h, id){
+  const r = rng(seedOf('blk:' + h));
+  const txCount = 1 + Math.floor(r() * r() * 48), pool = pickPool(r);
+  const b = { height: h, id: id || hex(r, 64), parentId: hex(r, 64), timestamp: NOW - (TIP - h) * 121000, txCount,
+    size: 780 + Math.round(txCount * (420 + r() * 1400)), miner: pool, minerAddress: pool.address, difficulty: 1.58e15,
+    nBits: 0x1c5a7c6a, reward: 18 * NANO, fees: Math.round(txCount * 1100000 * 1.6), votes: '0,0,0', version: 3,
+    stateRoot: hex(r, 66), txRoot: hex(r, 64), adRoot: hex(r, 64), extHash: hex(r, 64),
+    pow: { pk: '02' + hex(r, 64), w: '02' + hex(r, 64), n: hex(r, 16), d: 0 } };
+  byId[b.id] = b; byHeight[h] = b; return b;
+}
+
+// ── transactions ───────────────────────
+const txCache = {};
+function blockTxs(b){
+  if (b.txs) return b.txs;
+  const r = rng(seedOf('txs:' + b.id));
+  const list = [];
+  for (let i = 0; i < b.txCount; i++){
+    const id = hex(r, 64);
+    list.push(makeTx(id, b, i, r));
+  }
+  b.txs = list; return list;
+}
+function makeTx(id, b, index, r){
+  r = r || rng(seedOf('tx:' + id));
+  const coinbase = index === b.txCount - 1;   // Ergo puts the emission/reward tx last
+  const tx = { id, blockId: b.id, height: b.height, timestamp: b.timestamp, index, inputs: [], dataInputs: [], outputs: [], coinbase };
+  const rb = rng(seedOf('box:' + id));
+  if (coinbase){
+    const emission = 30 * NANO;
+    tx.inputs.push(mkBox(rb, EMISSION_ADDR, 7_200_000 * NANO - (b.height - 777_000) * 3 * NANO, [], b.height - 1));
+    tx.outputs.push(mkBox(rb, EMISSION_ADDR, tx.inputs[0].value - emission, [], b.height));
+    tx.outputs.push(mkBox(rb, b.minerAddress, 18 * NANO, [], b.height));
+    tx.outputs.push(mkBox(rb, knownAddr('Re-emission contract'), 12 * NANO, [], b.height));
+    tx.fee = 0; tx.size = 412;
+    tx.kind = 'Block reward';
+  } else {
+    const kind = pick(rb, ['Transfer', 'Transfer', 'Transfer', 'Token transfer', 'Token transfer', 'DEX swap', 'Bank mint', 'Bridge lock', 'Consolidation']);
+    tx.kind = kind;
+    const nIn = 1 + Math.floor(rb() * rb() * 5), nOut = 2 + Math.floor(rb() * rb() * 4);
+    let total = 0;
+    const from = rb() < .2 ? pickPool(rb).address : b58(rb, 51, '9');
+    const toks = kind === 'Transfer' || kind === 'Consolidation' ? [] : sampleTokens(rb, kind === 'DEX swap' ? 2 : 1);
+    for (let i = 0; i < nIn; i++){ const v = Math.round(NANO * (0.05 + Math.pow(rb(), 3) * 4000)); total += v; tx.inputs.push(mkBox(rb, from, v, toks, b.height - 1 - (rb() * 5000 | 0))); }
+    tx.fee = Math.round(1100000 * (1 + (rb() < .3 ? rb() * 2 : 0)));
+    let rem = total - tx.fee;
+    const dest = kind === 'DEX swap' ? knownAddr('Spectrum ERG/SigUSD pool') : kind === 'Bank mint' ? knownAddr('SigmaUSD bank') : kind === 'Bridge lock' ? knownAddr('Rosen bridge lock') : b58(rb, 51, '9');
+    const amt = Math.round(rem * (0.1 + rb() * 0.8));
+    tx.outputs.push(mkBox(rb, dest, amt, toks, b.height, LABELS[dest] && LABELS[dest].contract));
+    rem -= amt;
+    for (let i = 2; i < nOut; i++){ const v = Math.round(rem * rb() * 0.3); rem -= v; tx.outputs.push(mkBox(rb, b58(rb, 51, '9'), v, [], b.height)); }
+    tx.outputs.push(mkBox(rb, from, rem, [], b.height));            // change
+    tx.outputs.push(mkBox(rb, FEE_ADDR, tx.fee, [], b.height, true)); // miner fee box
+    if (kind === 'DEX swap' || kind === 'Bank mint') tx.dataInputs.push(mkBox(rb, knownAddr(kind === 'DEX swap' ? 'Spectrum ERG/SigUSD pool' : 'SigmaUSD bank'), 1_500 * NANO, [], b.height - 40, true));
+    tx.size = 250 + tx.inputs.length * 110 + tx.outputs.length * 95 + (toks.length ? 60 : 0);
+  }
+  tx.outputs.forEach((o, i) => { o.index = i; o.spent = i < tx.outputs.length - 1 && rb() < (TIP - b.height) / 400; if (o.spent) o.spentBy = hex(rb, 64); });
+  tx.inputs.forEach((o, i) => { o.index = i; });
+  txCache[id] = tx; return tx;
+}
+function mkBox(r, address, value, assets, creationHeight, contract){
+  const isContract = contract || (LABELS[address] && LABELS[address].contract);
+  const b = { boxId: hex(r, 64), address, value, assets: assets.map(a => ({ ...a })), creationHeight,
+    ergoTree: isContract ? '1005' + hex(r, 180) : '0008cd' + hex(r, 66), registers: {} };
+  if (assets.length && r() < .7){ b.registers.R4 = { type: 'Coll[Byte]', raw: '0e' + hex(r, 24), render: '"' + pick(r, ['refund', 'order:erg-sigusd', 'lp-deposit', 'batch#' + (r()*9000|0)]) + '"' }; }
+  if (isContract){ b.registers.R5 = { type: 'Long', raw: '05' + hex(r, 8), render: String(Math.round(r() * 5e7)) }; b.registers.R6 = { type: 'Int', raw: '04' + hex(r, 4), render: String(r()*1000|0) }; }
+  return b;
+}
+function sampleTokens(r, n){
+  const out = []; const used = new Set();
+  while (out.length < n){ const t = pick(r, TOKENS); if (used.has(t.id)) continue; used.add(t.id);
+    out.push({ tokenId: t.id, name: t.name, decimals: t.dec, amount: Math.round(Math.pow(10, t.dec) * (1 + Math.pow(r(), 2) * 50000)) }); }
+  return out;
+}
+function getTx(id){
+  if (txCache[id]) return txCache[id];
+  if (!/^[0-9a-f]{64}$/.test(id)) return null;
+  // not one we generated for a listed block: park it in a recent block
+  const b = blocks[seedOf(id) % 380 + 5];
+  return makeTx(id, b, seedOf(id) % Math.max(1, b.txCount - 1));
+}
+function recentTxs(n){
+  const out = [];
+  for (const b of blocks){ let k = 0; for (const t of blockTxs(b)){ if (t.coinbase || k >= 3) continue; out.push(t); k++; if (out.length >= n) return out; } }
+  return out;
+}
+
+// ── mempool ────────────────────────────
+const mempool = (() => {
+  const r = rng(seedOf('mempool'));
+  const fake = { id: 'mempool', height: TIP + 1, timestamp: NOW, txCount: 999, minerAddress: POOLS[0].address };
+  const list = [];
+  for (let i = 0; i < 37; i++){ const id = hex(r, 64); const t = makeTx(id, fake, i, r); t.timestamp = NOW + 41000 - Math.round(r() * 300000); t.pending = true; t.blockId = null; t.height = null; list.push(t); }
+  return list.sort((a, b) => b.timestamp - a.timestamp);
+})();
+
+// ── address ────────────────────────────
+function getAddress(a){
+  if (!/^[1-9A-HJ-NP-Za-km-z]{40,}$/.test(a)) return null;
+  const r = rng(seedOf('addr:' + a));
+  const lb = LABELS[a];
+  const pool = POOLS.find(p => p.address === a);
+  const contract = lb ? lb.contract : !a.startsWith('9');
+  const balance = pool ? Math.round(NANO * (2000 + r() * 40000)) : contract ? Math.round(NANO * (50000 + r() * 900000)) : Math.round(NANO * Math.pow(r(), 2) * 12000);
+  const tokens = sampleTokens(r, contract ? 3 : Math.floor(r() * 4)).map(t => ({ ...t, amount: t.amount * (1 + (r() * 40 | 0)) }));
+  const txCount = pool ? 30000 + (r() * 90000 | 0) : contract ? 80000 + (r() * 500000 | 0) : 1 + (r() * r() * 900 | 0);
+  const txs = [];
+  const n = Math.min(txCount, 20);
+  for (let i = 0; i < n; i++){
+    const b = blocks[Math.min(399, (r() * r() * 400) | 0)];
+    const dir = pool ? 'in' : pick(r, ['in', 'out', 'out', 'self']);
+    const amt = pool ? 18 * NANO : Math.round(NANO * Math.pow(r(), 2) * 900);
+    txs.push({ id: hex(r, 64), height: b.height, timestamp: b.timestamp, dir, amount: dir === 'out' ? -amt : amt, tokens: r() < .3 ? sampleTokens(r, 1) : [], fee: 1100000 });
+  }
+  txs.sort((x, y) => y.height - x.height);
+  const ergoTree = contract ? '1005' + hex(r, 200) : '0008cd' + hex(r, 66);
+  return { address: a, label: lb, contract, balance, unconfirmed: r() < .15 ? Math.round(NANO * r() * 5) : 0, tokens, txCount, txs, ergoTree,
+    firstSeen: NOW - Math.round(r() * 3e10), lastSeen: txs[0] ? txs[0].timestamp : NOW, boxes: 1 + (r() * (contract ? 2000 : 12) | 0) };
+}
+
+// ── charts data ────────────────────────
+const hashrate30 = (() => { const r = rng(seedOf('hr')); let v = 11.9; const out = []; for (let i = 29; i >= 0; i--){ v = Math.max(9.5, Math.min(15.5, v + (r() - 0.48) * 0.6)); out.push({ day: NOW - i * 864e5, v: +v.toFixed(2) }); } out[29].v = 12.84; return out; })();
+const pool24 = (() => { const r = rng(seedOf('p24')); const total = 712; return POOLS.map(p => ({ name: p.name, n: Math.round(total * p.w * (0.9 + r() * 0.2)) })).sort((a, b) => b.n - a.n); })();
+
+/* ═══════════════════════════════════════════════════════════════
+   Formatting
+   ═══════════════════════════════════════════════════════════════ */
+const fmtInt = n => n.toLocaleString('en-US');
+function erg(nano, maxDec){ const v = nano / NANO; return v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxDec == null ? 9 : maxDec }); }
+function ergHtml(nano, maxDec){ return `<span class="num">${erg(nano, maxDec)}</span> <span class="muted">ERG</span>`; }
+function tokAmt(t){ return (t.amount / Math.pow(10, t.decimals)).toLocaleString('en-US', { maximumFractionDigits: t.decimals }); }
+function bytes(n){ return n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(2) + ' MB'; }
+function short(h, a = 8, b = 6){ return h.length <= a + b + 1 ? h : h.slice(0, a) + '…' + h.slice(-b); }
+function ago(ts){ const s = Math.max(0, Math.round((Date.now() - ts) / 1000)); if (s < 60) return s + 's ago'; const m = s / 60 | 0; if (m < 60) return m + 'm ago'; const h = m / 60 | 0; if (h < 48) return h + 'h ' + (m % 60) + 'm ago'; return (h / 24 | 0) + 'd ago'; }
+function pad(n){ return String(n).padStart(2, '0'); }
+function fmtDate(ts){ const d = new Date(ts); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())} UTC`; }
+function fmtSci(n){ return (n / 1e15).toFixed(3) + ' P'; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+const ICONS = {
+  search: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  copy: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
+  arrow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  prev: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
+  next: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>',
+};
+const copyBtn = v => `<button class="copy" data-copy="${esc(v)}" title="Copy" aria-label="Copy">${ICONS.copy}</button>`;
+const tokIcon = (t, size) => { const m = tokById[t.tokenId || t.id]; const c = m ? m.color : '#7a7a7a'; return `<i style="background:${c}">${esc((t.name || '?').slice(0, 2).toUpperCase())}</i>`; };
+const tokChip = t => `<a class="tok" href="#/token/${t.tokenId}" title="${esc(t.name)}">${tokIcon(t)}<span class="num">${tokAmt(t)}</span> ${esc(t.name)}</a>`;
+function addrLink(a, opts = {}){
+  const lb = LABELS[a];
+  const text = lb && !opts.raw ? `<span class="name${lb.contract ? ' contract' : ''}">${esc(lb.name)}</span>` : `<span class="mono">${short(a, opts.a || 9, opts.b || 6)}</span>`;
+  return `<a class="lbl" href="#/address/${a}" title="${a}">${text}</a>`;
+}
+const blockLink = b => `<a class="num" href="#/block/${b.height}">${fmtInt(b.height)}</a>`;
+const txLink = (id, a = 10, b = 8) => `<a class="mono" href="#/tx/${id}" title="${id}">${short(id, a, b)}</a>`;
+const kindPill = k => `<span class="pill ${k === 'Block reward' ? 'accent' : 'neutral'}">${k}</span>`;
+
+/* ═══════════════════════════════════════════════════════════════
+   Views
+   ═══════════════════════════════════════════════════════════════ */
+function header(route){
+  const on = p => route.startsWith(p) ? ' class="on"' : '';
+  return `<header class="topbar"><div class="topbar-in">
+    <a class="brand" href="#/">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><path d="M13 1.5 23.2 7.25v11.5L13 24.5 2.8 18.75V7.25Z" fill="var(--accent)"/><path d="M9 8.5h8.2v2.6h-5.3v1.6h4.6v2.5h-4.6v1.7h5.3v2.6H9Z" fill="#fff"/></svg>
+      Ergo Explorer
+    </a>
+    <nav class="nav">
+      <a href="#/blocks"${on('/blocks') || on('/block/')}>Blocks</a>
+      <a href="#/mempool"${on('/mempool')}>Mempool</a>
+      <a href="#/tokens"${on('/token')}>Tokens</a>
+      <a href="#/charts"${on('/charts')}>Charts</a>
+      <a href="#/api"${on('/api')}>API</a>
+    </nav>
+    ${route === '/' ? '' : `<form class="search" data-search>${ICONS.search}<input id="q-top" placeholder="Address, transaction, block, token or height" autocomplete="off"></form>`}
+    <div class="netpill" style="margin-left:${route === '/' ? 'auto' : '0'}"><i></i>Mainnet <span>· synced</span></div>
+  </div></header>`;
+}
+const footer = () => `<footer class="foot"><div>Ergo Explorer · <span class="sample">Sample data</span> · figures are placeholders shaped like mainnet</div><div>Node v5.0.26 · Indexer height ${fmtInt(TIP)} · <a href="#/api">API</a></div></footer>`;
+
+function viewHome(){
+  const tip = blocks[0];
+  const avgBt = (blocks[0].timestamp - blocks[300].timestamp) / 300 / 60000;
+  const circ = 79_384_112;
+  const latestBlocks = blocks.slice(0, 10).map(b => `<a class="row" href="#/block/${b.height}">
+      <div class="ico">${b.height.toString().slice(-3)}</div>
+      <div class="main"><div class="t"><span class="num">${fmtInt(b.height)}</span> <span class="muted">·</span> ${esc(b.miner.name)}</div><div class="s">${b.txCount} tx · ${bytes(b.size)} · <span class="mono">${short(b.id, 8, 6)}</span></div></div>
+      <div class="side"><div class="t">${erg(b.reward + b.fees, 4)} ERG</div><div class="s">${ago(b.timestamp)}</div></div></a>`).join('');
+  const latestTxs = recentTxs(10).map(t => { const out = t.outputs.reduce((s, o) => s + o.value, 0); return `<a class="row" href="#/tx/${t.id}">
+      <div class="ico tx">TX</div>
+      <div class="main"><div class="t mono">${short(t.id, 12, 8)}</div><div class="s">${esc(t.kind)} · ${t.inputs.length} in → ${t.outputs.length} out · block ${fmtInt(t.height)}</div></div>
+      <div class="side"><div class="t">${erg(out, 4)} ERG</div><div class="s">fee ${erg(t.fee, 4)} · ${ago(t.timestamp)}</div></div></a>`; }).join('');
+  const maxPool = pool24[0].n;
+  return `<section class="hero"><div class="hero-in">
+      <div class="eyebrow">Ergo mainnet</div>
+      <h1>Search the Ergo blockchain</h1>
+      <form class="search big" data-search>${ICONS.search}<input id="q-hero" placeholder="Address, transaction, block, box, token or height" autocomplete="off"></form>
+      <div class="hints">Try: <a href="#/block/${tip.height}">block ${fmtInt(tip.height)}</a> <a href="#/address/${POOLS[0].address}">2Miners payout</a> <a href="#/token/${TOKENS[0].id}">SigUSD</a> <a href="#/address/${knownAddr('SigmaUSD bank')}">SigmaUSD bank</a></div>
+    </div></section>
+    <main class="wrap">
+      <div class="stats">
+        <div class="stat"><div class="k">Height</div><div class="v">${fmtInt(tip.height)}</div><div class="d">${ago(tip.timestamp)} · epoch ${fmtInt(Math.floor(tip.height / 1024))}</div></div>
+        <div class="stat"><div class="k">Hashrate</div><div class="v">12.84<small>TH/s</small></div><div class="d up">▲ 2.1% vs 7d</div></div>
+        <div class="stat"><div class="k">Difficulty</div><div class="v">${fmtSci(tip.difficulty)}</div><div class="d">next adjust in ${1024 - tip.height % 1024} blocks</div></div>
+        <div class="stat"><div class="k">Block time</div><div class="v">${Math.floor(avgBt)}m ${pad(Math.round((avgBt % 1) * 60))}s</div><div class="d">avg over last 300 · target 2m</div></div>
+        <div class="stat"><div class="k">Supply</div><div class="v">${(circ / 1e6).toFixed(2)}<small>M ERG</small></div><div class="d">${(circ / MAX_SUPPLY * 100).toFixed(1)}% of ${(MAX_SUPPLY / 1e6).toFixed(2)}M max</div></div>
+        <div class="stat"><div class="k">Mempool</div><div class="v">${mempool.length}<small>tx</small></div><div class="d">${bytes(mempool.reduce((s, t) => s + t.size, 0))} pending</div></div>
+      </div>
+
+      <div class="grid c21">
+        <div class="panel"><div class="panel-h"><h2>Network hashrate</h2><span class="muted" style="font-size:12.5px">Last 30 days · TH/s</span></div><div class="panel-b"><div class="chart" id="spark"><div class="tip"></div></div></div></div>
+        <div class="panel"><div class="panel-h"><h2>Blocks by pool</h2><span class="muted" style="font-size:12.5px">Last 24h · ${fmtInt(pool24.reduce((s, p) => s + p.n, 0))} blocks</span></div><div class="panel-b"><div class="bars">
+          ${pool24.map(p => `<div class="bar"><div class="l">${esc(p.name)}</div><div class="track"><div class="fill" style="width:${(p.n / maxPool * 100).toFixed(1)}%"></div></div><div class="n">${p.n}</div></div>`).join('')}
+        </div></div></div>
+      </div>
+
+      <div class="grid c2">
+        <div class="panel"><div class="panel-h"><h2><span class="live"></span>Latest blocks</h2><a class="more" href="#/blocks">View all blocks →</a></div><div class="rows">${latestBlocks}</div></div>
+        <div class="panel"><div class="panel-h"><h2><span class="live"></span>Latest transactions</h2><a class="more" href="#/mempool">View mempool →</a></div><div class="rows">${latestTxs}</div></div>
+      </div>
+    </main>`;
+}
+
+function viewBlocks(q){
+  const page = Math.max(1, +q.page || 1), per = 25, start = (page - 1) * per;
+  const rows = blocks.slice(start, start + per);
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span>Blocks</div>
+    <div class="phead"><div class="id"><div class="title"><h1>Blocks</h1></div><div class="muted">Newest first · ${fmtInt(TIP)} blocks in chain · ${fmtInt(Math.floor(TIP / 1024))} difficulty epochs</div></div></div>
+    <div class="panel"><div class="tscroll"><table>
+      <thead><tr><th>Height</th><th>Age</th><th>Timestamp</th><th class="r">Txs</th><th>Miner</th><th class="r">Size</th><th class="r">Difficulty</th><th class="r">Reward + fees</th><th>Block id</th></tr></thead>
+      <tbody>${rows.map(b => `<tr>
+        <td>${blockLink(b)}</td><td class="muted">${ago(b.timestamp)}</td><td class="mono muted" style="font-size:12px">${fmtDate(b.timestamp)}</td>
+        <td class="r num">${b.txCount}</td><td>${addrLink(b.minerAddress)}</td><td class="r num">${bytes(b.size)}</td><td class="r num">${fmtSci(b.difficulty)}</td>
+        <td class="r num">${erg(b.reward + b.fees, 4)} ERG</td><td>${txLinkTo('block', b.id)}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="panel-f"><span>Showing ${fmtInt(TIP - start)} → ${fmtInt(TIP - start - rows.length + 1)}</span>${pager(page, Math.ceil(blocks.length / per), '#/blocks')}</div></div>
+  </main>`;
+}
+const txLinkTo = (kind, id) => `<a class="mono" href="#/${kind}/${id}" title="${id}">${short(id, 10, 8)}</a>`;
+function pager(page, total, base){
+  return `<div class="pager"><a class="btn sm icon" href="${base}?page=${page - 1}" ${page <= 1 ? 'aria-disabled="true" style="opacity:.4;pointer-events:none"' : ''}>${ICONS.prev}</a><span class="cur">Page ${page} of ${total}</span><a class="btn sm icon" href="${base}?page=${page + 1}" ${page >= total ? 'aria-disabled="true" style="opacity:.4;pointer-events:none"' : ''}>${ICONS.next}</a></div>`;
+}
+
+function viewBlock(key, q){
+  const b = getBlock(key);
+  if (!b) return notFound('block', key);
+  const txs = blockTxs(b);
+  const conf = TIP - b.height + 1;
+  const tab = q.tab || 'txs';
+  const kv = (k, v) => `<div class="k">${k}</div><div class="v">${v}</div>`;
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span><a href="#/blocks">Blocks</a><span class="sep">/</span><span class="num">${fmtInt(b.height)}</span></div>
+    <div class="phead">
+      <div class="id">
+        <div class="title"><h1>Block <span class="num">${fmtInt(b.height)}</span></h1><span class="pill good">${conf < 10 ? conf + ' confirmation' + (conf > 1 ? 's' : '') : 'Confirmed'}</span>${b.votes !== '0,0,0' ? '<span class="pill warn">Votes ' + b.votes + '</span>' : ''}</div>
+        <div class="idline"><span class="hash">${b.id}</span>${copyBtn(b.id)}</div>
+      </div>
+      <div class="acts"><a class="btn" href="#/block/${b.height - 1}">${ICONS.prev} ${fmtInt(b.height - 1)}</a><a class="btn" href="#/block/${b.height + 1}" ${b.height >= TIP ? 'style="opacity:.4;pointer-events:none"' : ''}>${fmtInt(b.height + 1)} ${ICONS.next}</a></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:20px"><div class="panel-b"><div class="kv2">
+      <div class="kv">
+        ${kv('Timestamp', `<span class="mono">${fmtDate(b.timestamp)}</span> <span class="muted">· ${ago(b.timestamp)}</span>`)}
+        ${kv('Transactions', `<span class="num">${b.txCount}</span> <span class="muted">· ${bytes(b.size)}</span>`)}
+        ${kv('Miner', `${addrLink(b.minerAddress)} <span class="muted mono" style="font-size:12px">${short(b.minerAddress, 6, 6)}</span>`)}
+        ${kv('Miner reward', `${ergHtml(b.reward)} <span class="muted">+ ${erg(b.fees, 4)} ERG fees</span>`)}
+        ${kv('Emission', `<span class="num">30 ERG</span> <span class="muted">· 12 ERG to re-emission (EIP-27)</span>`)}
+        ${kv('Confirmations', `<span class="num">${fmtInt(conf)}</span>`)}
+      </div>
+      <div class="kv">
+        ${kv('Difficulty', `<span class="num">${fmtInt(Math.round(b.difficulty))}</span>`)}
+        ${kv('nBits', `<span class="mono">${b.nBits.toString(16)}</span>`)}
+        ${kv('Epoch', `<span class="num">${fmtInt(Math.floor(b.height / 1024))}</span> <span class="muted">· block ${b.height % 1024 + 1} of 1024</span>`)}
+        ${kv('Version', `<span class="num">${b.version}</span> <span class="muted">· votes ${b.votes}</span>`)}
+        ${kv('Parent', `${txLinkTo('block', b.parentId)}${copyBtn(b.parentId)}`)}
+        ${kv('Size', `<span class="num">${fmtInt(b.size)} bytes</span>`)}
+      </div>
+    </div></div></div>
+
+    <div class="panel">
+      <div class="tabs" data-tabs>
+        <button data-tab="txs" class="${tab === 'txs' ? 'on' : ''}">Transactions<span class="n">${b.txCount}</span></button>
+        <button data-tab="header" class="${tab === 'header' ? 'on' : ''}">Header</button>
+        <button data-tab="pow" class="${tab === 'pow' ? 'on' : ''}">PoW solution</button>
+        <button data-tab="ext" class="${tab === 'ext' ? 'on' : ''}">Extension</button>
+      </div>
+      <div class="tabpane" data-pane="txs" ${tab !== 'txs' ? 'hidden' : ''}>${txs.map(txCard).join('')}</div>
+      <div class="tabpane" data-pane="header" ${tab !== 'header' ? 'hidden' : ''}><div class="panel-b"><div class="kv">
+        ${kv('Block id', `<span class="hash-full">${b.id}</span>`)}
+        ${kv('Parent id', `<span class="hash-full">${b.parentId}</span>`)}
+        ${kv('State root', `<span class="hash-full">${b.stateRoot}</span>`)}
+        ${kv('Transactions root', `<span class="hash-full">${b.txRoot}</span>`)}
+        ${kv('AD proofs root', `<span class="hash-full">${b.adRoot}</span>`)}
+        ${kv('Extension hash', `<span class="hash-full">${b.extHash}</span>`)}
+        ${kv('Timestamp', `<span class="mono">${b.timestamp}</span> <span class="muted">ms since epoch</span>`)}
+        ${kv('Version', b.version)}${kv('Votes', `<span class="mono">${b.votes}</span>`)}
+      </div></div></div>
+      <div class="tabpane" data-pane="pow" ${tab !== 'pow' ? 'hidden' : ''}><div class="panel-b"><div class="kv">
+        ${kv('Algorithm', 'Autolykos v2')}
+        ${kv('pk (miner)', `<span class="hash-full">${b.pow.pk}</span>`)}
+        ${kv('w', `<span class="hash-full">${b.pow.w}</span>`)}
+        ${kv('n (nonce)', `<span class="mono">${b.pow.n}</span>`)}
+        ${kv('d', `<span class="mono">${b.pow.d}</span>`)}
+      </div><p class="note">Autolykos v2 is memory-hard and ASIC-resistant; <span class="mono">pk</span> is the miner's public key, <span class="mono">w</span> a one-time key, <span class="mono">d</span> is always 0 in v2.</p></div></div>
+      <div class="tabpane" data-pane="ext" ${tab !== 'ext' ? 'hidden' : ''}><div class="panel-b"><div class="kv">
+        ${kv('Extension hash', `<span class="hash-full">${b.extHash}</span>`)}
+        ${kv('Fields', `<div class="regs" style="margin-top:0"><span class="rk">0100</span><span class="rv">${hex(rng(seedOf('ext' + b.id)), 64)}</span><span class="rk">0101</span><span class="rv">${hex(rng(seedOf('ext1' + b.id)), 64)}</span><span class="rk">0102</span><span class="rv">${hex(rng(seedOf('ext2' + b.id)), 64)}</span></div>`)}
+        ${kv('Interlinks', `<span class="muted">3 interlink vectors (NiPoPoW)</span>`)}
+      </div></div></div>
+    </div>
+  </main>`;
+}
+function txCard(t){
+  const outTotal = t.outputs.reduce((s, o) => s + o.value, 0);
+  const side = (list, cap, isOut) => `<div class="lst"><div class="cap">${cap} (${list.length})</div>${list.slice(0, 4).map(o => `<div><span class="a">${addrLink(o.address, { a: 10, b: 8 })}${o.assets.length ? ` <span class="tag">+${o.assets.length} token${o.assets.length > 1 ? 's' : ''}</span>` : ''}</span><span class="v">${erg(o.value, 4)} ERG</span></div>`).join('')}${list.length > 4 ? `<div class="muted">… ${list.length - 4} more</div>` : ''}</div>`;
+  return `<div class="txcard">
+    <div class="h"><span>${txLink(t.id, 14, 10)} ${copyBtn(t.id)} ${kindPill(t.kind)}</span><span class="muted num" style="font-size:12.5px">${erg(outTotal, 4)} ERG · fee ${erg(t.fee, 4)} · ${bytes(t.size)}</span></div>
+    ${side(t.inputs, 'Inputs')}${side(t.outputs, 'Outputs', true)}
+  </div>`;
+}
+
+function viewTx(id){
+  const t = getTx(id);
+  if (!t) return notFound('transaction', id);
+  const b = t.pending ? null : getBlock(t.blockId);
+  const conf = t.pending ? 0 : TIP - t.height + 1;
+  const inTotal = t.inputs.reduce((s, o) => s + o.value, 0), outTotal = t.outputs.reduce((s, o) => s + o.value, 0);
+  const kv = (k, v) => `<div class="k">${k}</div><div class="v">${v}</div>`;
+  const boxHtml = (o, isOut) => `<div class="box">
+      <div class="bh"><span class="a">${addrLink(o.address, { a: 12, b: 10 })}</span><span class="val">${erg(o.value)} <span class="muted" style="font-weight:500">ERG</span></span></div>
+      ${o.assets.length ? `<div class="toks">${o.assets.map(tokChip).join('')}</div>` : ''}
+      <div class="bm"><span class="idx">#${o.index}</span><span class="mono">${short(o.boxId, 10, 8)}</span>${copyBtn(o.boxId)}<span>created at ${fmtInt(o.creationHeight)}</span>
+        ${isOut ? (o.spent ? `<span>· spent in ${txLink(o.spentBy, 8, 6)}</span>` : '<span class="pill good">Unspent</span>') : ''}</div>
+      <details><summary>ErgoTree &amp; registers</summary>
+        <div class="regs"><span class="rk">Tree</span><span class="rv">${o.ergoTree}</span>
+        ${Object.entries(o.registers).map(([k, r]) => `<span class="rk">${k}</span><span class="rv">${r.render} <span class="rt">· ${r.type} · ${r.raw}</span></span>`).join('')}
+        ${Object.keys(o.registers).length === 0 ? '<span class="rk">R4–R9</span><span class="rv rt">empty</span>' : ''}</div>
+      </details>
+    </div>`;
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span>${t.pending ? '<a href="#/mempool">Mempool</a>' : `<a href="#/block/${t.height}">Block ${fmtInt(t.height)}</a>`}<span class="sep">/</span>Transaction</div>
+    <div class="phead"><div class="id">
+      <div class="title"><h1>Transaction</h1>${t.pending ? '<span class="pill warn">Pending · in mempool</span>' : `<span class="pill good">${fmtInt(conf)} confirmation${conf > 1 ? 's' : ''}</span>`}${kindPill(t.kind)}</div>
+      <div class="idline"><span class="hash">${t.id}</span>${copyBtn(t.id)}</div>
+    </div><div class="acts"><a class="btn" href="#/api">Raw JSON</a></div></div>
+
+    <div class="panel" style="margin-bottom:20px"><div class="panel-b"><div class="kv2">
+      <div class="kv">
+        ${kv('Block', t.pending ? '<span class="muted">— not yet included</span>' : `${blockLink(b)} <span class="muted mono" style="font-size:12px">${short(t.blockId, 8, 6)}</span>`)}
+        ${kv('Timestamp', `<span class="mono">${fmtDate(t.timestamp)}</span> <span class="muted">· ${ago(t.timestamp)}</span>`)}
+        ${kv('Index in block', t.pending ? '—' : `<span class="num">${t.index}</span>`)}
+        ${kv('Size', `<span class="num">${fmtInt(t.size)} bytes</span>`)}
+      </div>
+      <div class="kv">
+        ${kv('Total input', ergHtml(inTotal))}
+        ${kv('Total output', ergHtml(outTotal))}
+        ${kv('Fee', `${ergHtml(t.fee)} <span class="muted">· ${(t.fee / t.size / 1000).toFixed(3)} µERG/byte</span>`)}
+        ${kv('Data inputs', `<span class="num">${t.dataInputs.length}</span>`)}
+      </div>
+    </div></div></div>
+
+    <div class="io">
+      <div class="iocol"><div class="ioh"><span>Inputs <span class="muted">(${t.inputs.length})</span></span><span class="sum">${erg(inTotal, 4)} ERG</span></div>${t.inputs.map(o => boxHtml(o, false)).join('')}
+        ${t.dataInputs.length ? `<div class="ioh" style="border-top:1px solid var(--line)"><span>Data inputs <span class="muted">(${t.dataInputs.length})</span></span><span class="sum">read-only</span></div>${t.dataInputs.map(o => boxHtml(o, false)).join('')}` : ''}</div>
+      <div class="arrow">${ICONS.arrow}</div>
+      <div class="iocol"><div class="ioh"><span>Outputs <span class="muted">(${t.outputs.length})</span></span><span class="sum">${erg(outTotal, 4)} ERG</span></div>${t.outputs.map(o => boxHtml(o, true)).join('')}</div>
+    </div>
+  </main>`;
+}
+
+function viewAddress(a){
+  const d = getAddress(a);
+  if (!d) return notFound('address', a);
+  const kv = (k, v) => `<div class="k">${k}</div><div class="v">${v}</div>`;
+  const qr = (() => { const r = rng(seedOf('qr' + a)); let s = ''; for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++){ const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13); const on = finder ? ((x % 7 === 0 || x % 7 === 6 || y % 7 === 0 || y % 7 === 6) && !(x === 7 || y === 7) && (x < 7 || x > 13) && (y < 7 || y > 13)) || ((x % 7 >= 2 && x % 7 <= 4 && y % 7 >= 2 && y % 7 <= 4) && (x < 7 || x > 13) && (y < 7 || y > 13)) : r() < .45; if (on) s += `<rect x="${x}" y="${y}" width="1" height="1"/>`; } return `<svg viewBox="0 0 21 21" fill="#111" shape-rendering="crispEdges">${s}</svg>`; })();
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span>Address</div>
+    <div class="phead"><div class="id">
+      <div class="title"><h1>${d.label ? esc(d.label.name) : 'Address'}</h1><span class="pill neutral">${d.contract ? 'P2S · script' : 'P2PK'}</span>${d.unconfirmed ? '<span class="pill warn">Unconfirmed activity</span>' : ''}</div>
+      <div class="idline"><span class="hash">${a}</span>${copyBtn(a)}</div>
+    </div><div class="acts"><a class="btn" href="#/api">Raw JSON</a><button class="btn">Watch</button></div></div>
+
+    <div class="grid c21">
+      <div class="panel"><div class="panel-b"><div class="balance">
+        <div class="qr">${qr}</div>
+        <div><div class="sub">Confirmed balance</div><div class="big">${erg(d.balance)}<small>ERG</small></div><div class="sub">${d.unconfirmed ? `+ ${erg(d.unconfirmed, 4)} ERG unconfirmed · ` : ''}${fmtInt(d.boxes)} unspent box${d.boxes > 1 ? 'es' : ''}</div></div>
+        <div><div class="sub">Tokens</div><div class="big">${d.tokens.length}</div><div class="sub">${d.tokens.length ? d.tokens.map(t => t.name).join(', ') : 'none held'}</div></div>
+        <div><div class="sub">Transactions</div><div class="big">${fmtInt(d.txCount)}</div><div class="sub">first ${ago(d.firstSeen)} · last ${ago(d.lastSeen)}</div></div>
+      </div></div></div>
+      <div class="panel"><div class="panel-h"><h2>Script</h2><span class="muted" style="font-size:12.5px">${d.contract ? 'ErgoTree v1' : 'proveDlog'}</span></div><div class="panel-b">
+        <div class="hash-full muted" style="max-height:96px;overflow:auto">${d.ergoTree}</div>
+        <p class="note">${d.contract ? 'Pay-to-script address. Boxes can be spent only when the ErgoTree evaluates to true.' : 'Pay-to-public-key. Spending requires a Schnorr signature for the embedded key.'}</p>
+      </div></div>
+    </div>
+
+    ${d.tokens.length ? `<div class="panel" style="margin-bottom:20px"><div class="panel-h"><h2>Token balances</h2></div><div class="tscroll"><table>
+      <thead><tr><th>Token</th><th class="r">Amount</th><th>Token id</th><th class="r">Decimals</th></tr></thead>
+      <tbody>${d.tokens.map(t => `<tr><td><a class="lbl" href="#/token/${t.tokenId}">${tokIcon(t)}&nbsp;<span class="name">${esc(t.name)}</span></a></td><td class="r num">${tokAmt(t)}</td><td class="mono muted" style="font-size:12px">${short(t.tokenId, 12, 8)}</td><td class="r num">${t.decimals}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+
+    <div class="panel"><div class="panel-h"><h2>Transactions</h2><span class="muted" style="font-size:12.5px">Latest ${d.txs.length} of ${fmtInt(d.txCount)}</span></div><div class="tscroll"><table>
+      <thead><tr><th>Transaction</th><th>Block</th><th>Age</th><th></th><th class="r">Amount</th><th>Tokens</th><th class="r">Fee</th></tr></thead>
+      <tbody>${d.txs.map(t => `<tr><td>${txLink(t.id, 12, 8)}</td><td>${blockLink({ height: t.height })}</td><td class="muted">${ago(t.timestamp)}</td>
+        <td><span class="dir ${t.dir}">${t.dir.toUpperCase()}</span></td><td class="r num" style="color:${t.amount > 0 ? 'var(--good)' : 'inherit'}">${t.amount > 0 ? '+' : '−'}${erg(Math.abs(t.amount), 4)} ERG</td>
+        <td>${t.tokens.map(tokChip).join(' ') || '<span class="faint">—</span>'}</td><td class="r num muted">${erg(t.fee, 4)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="panel-f"><span>Newest first</span><div class="pager"><button class="btn sm icon" disabled>${ICONS.prev}</button><span class="cur">Page 1 of ${Math.max(1, Math.ceil(d.txCount / 20))}</span><button class="btn sm icon" ${d.txCount > 20 ? '' : 'disabled'}>${ICONS.next}</button></div></div></div>
+  </main>`;
+}
+
+function viewTokens(){
+  const r = rng(seedOf('tokens'));
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span>Tokens</div>
+    <div class="phead"><div class="id"><div class="title"><h1>Tokens</h1></div><div class="muted">EIP-4 assets on Ergo · ${fmtInt(148_512)} tokens minted · showing the most held</div></div></div>
+    <div class="panel"><div class="tscroll"><table>
+      <thead><tr><th>Token</th><th>Token id</th><th class="r">Decimals</th><th class="r">Total supply</th><th class="r">Holders</th><th class="r">Transfers 24h</th></tr></thead>
+      <tbody>${TOKENS.map(t => `<tr><td><a class="lbl" href="#/token/${t.id}">${tokIcon(t)}&nbsp;<span class="name">${esc(t.name)}</span></a></td><td class="mono muted" style="font-size:12px">${short(t.id, 14, 10)}</td><td class="r num">${t.dec}</td><td class="r num">${(t.supply / Math.pow(10, t.dec)).toLocaleString('en-US')}</td><td class="r num">${fmtInt(200 + (r() * 30000 | 0))}</td><td class="r num">${fmtInt(r() * 900 | 0)}</td></tr>`).join('')}</tbody>
+    </table></div></div>
+  </main>`;
+}
+
+function viewToken(id){
+  const t = tokById[id];
+  if (!t) return notFound('token', id);
+  const r = rng(seedOf('tok:' + id));
+  const kv = (k, v) => `<div class="k">${k}</div><div class="v">${v}</div>`;
+  const issueBox = hex(r, 64), issueTx = hex(r, 64), issueH = 400000 + (r() * 900000 | 0);
+  const holders = Array.from({ length: 10 }, (_, i) => { const a = i < 3 ? knownAddr(pick(r, ['SigmaUSD bank', 'Spectrum ERG/SigUSD pool', 'Rosen bridge lock'])) : b58(r, 51, '9'); return { a, amt: Math.round(t.supply * Math.pow(0.55, i) * (0.02 + r() * 0.05)) }; });
+  const transfers = Array.from({ length: 12 }, () => { const b = blocks[(r() * 120) | 0]; return { id: hex(r, 64), height: b.height, ts: b.timestamp, from: b58(r, 51, '9'), to: r() < .4 ? knownAddr('Spectrum ERG/SigUSD pool') : b58(r, 51, '9'), amt: Math.round(Math.pow(10, t.dec) * (1 + Math.pow(r(), 2) * 90000)) }; });
+  const tk = amt => ({ amount: amt, decimals: t.dec });
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span><a href="#/tokens">Tokens</a><span class="sep">/</span>${esc(t.name)}</div>
+    <div class="phead"><div class="id">
+      <div class="title"><span class="tokicon" style="background:${t.color}">${esc(t.name.slice(0, 2).toUpperCase())}</span><h1>${esc(t.name)}</h1><span class="pill neutral">EIP-4 token</span><span class="pill neutral">${t.dec} decimals</span></div>
+      <div class="idline"><span class="hash">${t.id}</span>${copyBtn(t.id)}</div>
+    </div></div>
+    <div class="panel" style="margin-bottom:20px"><div class="panel-b"><div class="kv2">
+      <div class="kv">
+        ${kv('Description', esc(t.desc))}
+        ${kv('Total supply', `<span class="num">${tokAmt(tk(t.supply))}</span> <span class="muted">${esc(t.name)}</span>`)}
+        ${kv('Holders', `<span class="num">${fmtInt(200 + (r() * 30000 | 0))}</span>`)}
+      </div>
+      <div class="kv">
+        ${kv('Issued in', `${txLink(issueTx, 10, 8)} <span class="muted">· block ${fmtInt(issueH)}</span>`)}
+        ${kv('Issuing box', `<span class="mono">${short(issueBox, 10, 8)}</span>${copyBtn(issueBox)}`)}
+        ${kv('Standard', 'EIP-4 · name in R4, description R5, decimals R6')}
+      </div>
+    </div></div></div>
+    <div class="grid c2">
+      <div class="panel"><div class="panel-h"><h2>Top holders</h2></div><div class="tscroll"><table><thead><tr><th>#</th><th>Address</th><th class="r">Amount</th><th class="r">Share</th></tr></thead>
+        <tbody>${holders.map((h, i) => `<tr><td class="muted num">${i + 1}</td><td>${addrLink(h.a, { a: 10, b: 6 })}</td><td class="r num">${tokAmt(tk(h.amt))}</td><td class="r num muted">${(h.amt / t.supply * 100).toFixed(2)}%</td></tr>`).join('')}</tbody></table></div></div>
+      <div class="panel"><div class="panel-h"><h2>Recent transfers</h2></div><div class="tscroll"><table><thead><tr><th>Transaction</th><th>Block</th><th>To</th><th class="r">Amount</th></tr></thead>
+        <tbody>${transfers.map(x => `<tr><td>${txLink(x.id, 8, 6)}<div class="muted" style="font-size:11.5px">${ago(x.ts)}</div></td><td>${blockLink({ height: x.height })}</td><td>${addrLink(x.to, { a: 8, b: 5 })}</td><td class="r num">${tokAmt(tk(x.amt))}</td></tr>`).join('')}</tbody></table></div></div>
+    </div>
+  </main>`;
+}
+
+function viewMempool(){
+  const size = mempool.reduce((s, t) => s + t.size, 0), fees = mempool.reduce((s, t) => s + t.fee, 0);
+  return `<main class="wrap">
+    <div class="crumbs"><a href="#/">Home</a><span class="sep">/</span>Mempool</div>
+    <div class="phead"><div class="id"><div class="title"><h1>Mempool</h1><span class="pill warn">${mempool.length} unconfirmed</span></div><div class="muted">Transactions seen by the node but not yet included in a block · next block expected in ~${Math.max(5, 120 - Math.round((Date.now() - NOW) / 1000))}s</div></div></div>
+    <div class="stats" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="k">Pending</div><div class="v">${mempool.length}<small>tx</small></div><div class="d">oldest ${ago(mempool[mempool.length - 1].timestamp)}</div></div>
+      <div class="stat"><div class="k">Size</div><div class="v">${bytes(size)}</div><div class="d">of 512 KB block limit</div></div>
+      <div class="stat"><div class="k">Fees waiting</div><div class="v">${erg(fees, 4)}<small>ERG</small></div><div class="d">median ${erg(1100000, 4)} ERG</div></div>
+      <div class="stat"><div class="k">Fee rate</div><div class="v">1.1<small>µERG/B</small></div><div class="d">min relay 1.0 µERG/B</div></div>
+    </div>
+    <div class="panel"><div class="tscroll"><table>
+      <thead><tr><th>Transaction</th><th>Seen</th><th>Type</th><th class="r">In → out</th><th class="r">Value</th><th class="r">Fee</th><th class="r">Size</th></tr></thead>
+      <tbody>${mempool.map(t => `<tr><td>${txLink(t.id, 14, 10)}</td><td class="muted">${ago(t.timestamp)}</td><td>${kindPill(t.kind)}</td><td class="r num">${t.inputs.length} → ${t.outputs.length}</td><td class="r num">${erg(t.outputs.reduce((s, o) => s + o.value, 0), 4)} ERG</td><td class="r num">${erg(t.fee, 4)}</td><td class="r num muted">${bytes(t.size)}</td></tr>`).join('')}</tbody>
+    </table></div></div>
+  </main>`;
+}
+
+function viewStub(title, body){
+  return `<main class="wrap"><div class="crumbs"><a href="#/">Home</a><span class="sep">/</span>${title}</div><div class="phead"><div class="id"><div class="title"><h1>${title}</h1><span class="pill neutral">Mockup placeholder</span></div></div></div><div class="panel"><div class="panel-b">${body}</div></div></main>`;
+}
+function notFound(kind, key){
+  return `<main class="wrap"><div class="errbox"><h1>No ${kind} found</h1><div class="muted">Nothing on mainnet matches this ${kind} identifier. Check for typos or try searching again.</div><div class="code">${esc(key)}</div><a class="btn" href="#/">Back to home</a></div></main>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Sparkline
+   ═══════════════════════════════════════════════════════════════ */
+function drawSpark(){
+  const el = document.getElementById('spark'); if (!el) return;
+  const W = Math.max(280, el.clientWidth), H = 170, L = 40, R = 12, T = 14, B = 26;
+  const data = hashrate30;
+  const min = Math.floor(Math.min(...data.map(d => d.v)) - 0.5), max = Math.ceil(Math.max(...data.map(d => d.v)) + 0.5);
+  const x = i => L + i * (W - L - R) / (data.length - 1);
+  const y = v => T + (max - v) * (H - T - B) / (max - min);
+  const pts = data.map((d, i) => `${x(i).toFixed(1)},${y(d.v).toFixed(1)}`);
+  const line = 'M' + pts.join(' L');
+  const area = line + ` L${x(data.length - 1).toFixed(1)},${(H - B).toFixed(1)} L${L},${(H - B).toFixed(1)} Z`;
+  const ticks = []; for (let v = min; v <= max; v += (max - min) > 4 ? 2 : 1) ticks.push(v);
+  const days = [0, 7, 14, 21, 29];
+  const dl = ts => { const d = new Date(ts); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const last = data[data.length - 1];
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Network hashrate, last 30 days">
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">${v}</text>`).join('')}
+    ${days.map(i => `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === 29 ? 'end' : 'middle'}" font-size="11" fill="var(--muted)">${dl(data[i].day)}</text>`).join('')}
+    <path d="${area}" fill="url(#g)"/>
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${x(data.length - 1)}" cy="${y(last.v)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>
+    <g id="xh" style="display:none"><line y1="${T}" y2="${H - B}" stroke="var(--line-strong)" stroke-dasharray="3 3"/><circle r="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="2"/></g>
+  </svg><div class="tip"></div>`;
+  const svg = el.querySelector('svg'), xh = el.querySelector('#xh'), tip = el.querySelector('.tip');
+  svg.addEventListener('mousemove', e => {
+    const rect = svg.getBoundingClientRect(); const px = (e.clientX - rect.left) * W / rect.width;
+    const i = Math.max(0, Math.min(data.length - 1, Math.round((px - L) / ((W - L - R) / (data.length - 1)))));
+    xh.style.display = ''; xh.querySelector('line').setAttribute('x1', x(i)); xh.querySelector('line').setAttribute('x2', x(i));
+    xh.querySelector('circle').setAttribute('cx', x(i)); xh.querySelector('circle').setAttribute('cy', y(data[i].v));
+    tip.style.display = 'block'; tip.style.left = (x(i) * rect.width / W) + 'px'; tip.style.top = (y(data[i].v) * rect.height / H) + 'px';
+    tip.innerHTML = `<b>${data[i].v.toFixed(2)} TH/s</b> · ${dl(data[i].day)}`;
+  });
+  svg.addEventListener('mouseleave', () => { xh.style.display = 'none'; tip.style.display = 'none'; });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Router
+   ═══════════════════════════════════════════════════════════════ */
+function parseHash(){
+  const h = (location.hash || '#/').slice(1);
+  const [path, qs] = h.split('?');
+  const q = {}; (qs || '').split('&').forEach(p => { if (!p) return; const [k, v] = p.split('='); q[decodeURIComponent(k)] = decodeURIComponent(v || ''); });
+  return { path: path || '/', q };
+}
+function render(){
+  const { path, q } = parseHash();
+  const seg = path.split('/').filter(Boolean);
+  let body;
+  if (path === '/') body = viewHome();
+  else if (seg[0] === 'blocks') body = viewBlocks(q);
+  else if (seg[0] === 'block' && seg[1]) body = viewBlock(seg[1], q);
+  else if (seg[0] === 'tx' && seg[1]) body = viewTx(seg[1]);
+  else if (seg[0] === 'address' && seg[1]) body = viewAddress(seg[1]);
+  else if (seg[0] === 'tokens') body = viewTokens();
+  else if (seg[0] === 'token' && seg[1]) body = viewToken(seg[1]);
+  else if (seg[0] === 'mempool') body = viewMempool();
+  else if (seg[0] === 'charts') body = viewStub('Charts', '<p class="muted">Planned: hashrate, difficulty, block size, transactions per day, fees per day, active addresses, token transfers. Each chart gets a 24h / 7d / 30d / 1y / all range control and a table view.</p>');
+  else if (seg[0] === 'api') body = viewStub('API', `<p>The explorer backend exposes a REST API mirroring the Ergo Explorer v1 endpoints.</p><div class="regs" style="margin-top:12px">${['GET /api/v1/blocks', 'GET /api/v1/blocks/{id}', 'GET /api/v1/transactions/{id}', 'GET /api/v1/addresses/{address}/balance/total', 'GET /api/v1/addresses/{address}/transactions', 'GET /api/v1/boxes/{boxId}', 'GET /api/v1/tokens/{tokenId}', 'GET /api/v1/mempool/transactions', 'GET /api/v1/networkState', 'GET /api/v1/info'].map(e => `<span class="rk">${e.split(' ')[0]}</span><span class="rv">${e.split(' ')[1]}</span>`).join('')}</div>`);
+  else body = notFound('page', path);
+  document.getElementById('app').innerHTML = header(path) + body + footer();
+  window.scrollTo(0, 0);
+  drawSpark();
+}
+window.addEventListener('hashchange', render);
+window.addEventListener('resize', () => { if (document.getElementById('spark')) drawSpark(); });
+
+// search — height, address, tx / block id, token id
+function doSearch(q){
+  q = q.trim();
+  if (!q) return;
+  if (/^\d+$/.test(q)) return location.hash = '#/block/' + q;
+  if (tokById[q]) return location.hash = '#/token/' + q;
+  if (/^[0-9a-f]{64}$/i.test(q)){ const id = q.toLowerCase(); return location.hash = (byId[id] ? '#/block/' : '#/tx/') + id; }
+  if (/^[1-9A-HJ-NP-Za-km-z]{40,}$/.test(q)) return location.hash = '#/address/' + q;
+  const t = TOKENS.find(t => t.name.toLowerCase() === q.toLowerCase()); if (t) return location.hash = '#/token/' + t.id;
+  location.hash = '#/search/' + encodeURIComponent(q);
+}
+document.addEventListener('submit', e => { const f = e.target.closest('[data-search]'); if (!f) return; e.preventDefault(); doSearch(f.querySelector('input').value); });
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-copy]');
+  if (c){ const v = c.getAttribute('data-copy'); (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.resolve()).catch(() => {}); const t = document.getElementById('toast'); t.textContent = 'Copied ' + short(v, 6, 4); t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 1400); return; }
+  const tb = e.target.closest('[data-tab]');
+  if (tb){ const root = tb.closest('.panel'); root.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b === tb)); root.querySelectorAll('[data-pane]').forEach(p => p.hidden = p.dataset.pane !== tb.dataset.tab); }
+});
+render();
+</script>

@@ -1,0 +1,26 @@
+# Name of application (make sure it has no spaces)
+name: "ergo_explorer"
+
+# Display name of application (can have spaces)
+display_name: "Ergo Explorer API"
+
+# Type of launcher (CONSOLE or DAEMON)
+type: DAEMON
+
+# Java class to run
+main_class: "vn.erg.explorer.Main"
+
+domain: "vn.erg.explorer"
+
+short_description: "Ergo Explorer API"
+
+platforms: [ LINUX ]
+
+working_dir_mode: RETAIN
+
+min_java_version: "21"
+
+min_java_memory: 256
+max_java_memory: 2048
+
+symlink_java: true
