@@ -1,6 +1,6 @@
 package vn.erg.explorer.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import vn.erg.explorer.dtos.BoxDto;
@@ -8,7 +8,6 @@ import vn.erg.explorer.utils.ErgoAddress;
 import vn.erg.explorer.utils.Registers;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -56,8 +55,7 @@ public class BoxMapper {
             b.getAssets().add(tokens.asset(a.path("tokenId").asText(), a.path("amount").asLong()));
         }
         JsonNode regs = n.path("additionalRegisters");
-        for (Iterator<Map.Entry<String, JsonNode>> it = regs.fields(); it.hasNext(); ) {
-            Map.Entry<String, JsonNode> e = it.next();
+        for (Map.Entry<String, JsonNode> e : regs.properties()) {
             b.getRegisters().add(Registers.decode(e.getKey(), e.getValue().asText()));
         }
         if (n.has("spentTransactionId")) {

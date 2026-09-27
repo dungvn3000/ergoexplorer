@@ -1,7 +1,7 @@
 package vn.erg.explorer.node;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -28,7 +28,7 @@ public class NodeClient {
 
     private final List<String> nodes;
     private final Duration timeout;
-    private final ObjectMapper mapper;
+    private final JsonMapper mapper;
     private final HttpClient http;
     /** Round-robin position; each request starts at the next node. */
     private final AtomicInteger rotation = new AtomicInteger(0);
@@ -39,7 +39,7 @@ public class NodeClient {
     /** Upper bound on concurrent requests to the nodes, whatever the fan-out of a single API call. */
     private final Semaphore inFlight = new Semaphore(32);
 
-    public NodeClient(List<String> nodes, Duration timeout, ObjectMapper mapper) {
+    public NodeClient(List<String> nodes, Duration timeout, JsonMapper mapper) {
         if (nodes.isEmpty()) {
             throw new IllegalArgumentException("ergo.nodes must list at least one node");
         }

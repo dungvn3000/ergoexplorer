@@ -1,23 +1,22 @@
 package vn.erg.explorer.daos;
 
-import io.ebean.Database;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.models.IndexerState;
-import vn.erg.explorer.models.query.QIndexerState;
 
 import java.util.Optional;
 
 @Singleton
-public class IndexerStateDao extends BaseDao<Integer, IndexerState> {
+public class IndexerStateDao extends BaseDao<IndexerState> {
 
     @Inject
-    public IndexerStateDao(Database database) {
-        super(IndexerState.class, database);
+    public IndexerStateDao(Jdbi jdbi) {
+        super(IndexerState.class, jdbi);
     }
 
     public Optional<IndexerState> find() {
-        return Optional.ofNullable(new QIndexerState().id.eq(IndexerState.SINGLETON_ID).findOne());
+        return one("SELECT * FROM indexer_state WHERE id = :id", q -> q.bind("id", IndexerState.SINGLETON_ID));
     }
 
     /** Last fully indexed height, 0 when the index is empty. */

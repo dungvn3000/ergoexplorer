@@ -1,11 +1,9 @@
 package vn.erg.explorer.daos;
 
-import io.ebean.Database;
-import io.ebean.SqlRow;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.models.Block;
-import vn.erg.explorer.models.query.QBlock;
 import vn.erg.explorer.utils.Hex;
 
 import java.util.LinkedHashMap;
@@ -14,35 +12,37 @@ import java.util.Map;
 import java.util.Optional;
 
 @Singleton
-public class BlockDao extends BaseDao<Long, Block> {
+public class BlockDao extends BaseDao<Block> {
 
     @Inject
-    public BlockDao(Database database) {
-        super(Block.class, database);
+    public BlockDao(Jdbi jdbi) {
+        super(Block.class, jdbi);
     }
 
     public Optional<Block> findByHeight(long height) {
-        return Optional.ofNullable(new QBlock().height.eq(height).findOne());
+        return one("SELECT * FROM block WHERE height = :h", q -> q.bind("h", height));
     }
 
     public Optional<Block> findByHash(String id) {
-        return Optional.ofNullable(new QBlock().id.eq(Hex.decode(id)).findOne());
+        return one("SELECT * FROM block WHERE id = :id", q -> q.bind("id", Hex.decode(id)));
     }
 
     /** Blocks with height in [from, to], newest first. */
     public List<Block> findRange(long from, long to) {
-        return new QBlock().height.between(from, to).orderBy().height.desc().findList();
+        return list("SELECT * FROM block WHERE height BETWEEN :from AND :to ORDER BY height DESC", q -> q.bind("from", from).bind("to", to));
     }
 
     /** Miner script id -> number of blocks among the newest {@code blocks}, most first. */
     public Map<Long, Integer> minerShare(int blocks) {
-        Map<Long, Integer> out = new LinkedHashMap<>();
-        List<SqlRow> rows = db().sqlQuery("SELECT miner_script_id, COUNT(*) AS n FROM (SELECT miner_script_id FROM block ORDER BY height DESC LIMIT :n) x"
-                + " GROUP BY miner_script_id ORDER BY n DESC").setParameter("n", blocks).findList();
-        for (SqlRow r : rows) {
-            out.put(r.getLong("miner_script_id"), r.getInteger("n"));
-        }
-        return out;
+        return jdbi.withHandle(h -> {
+            Map<Long, Integer> out = new LinkedHashMap<>();
+            h.createQuery("SELECT miner_script_id, COUNT(*) AS n FROM (SELECT miner_script_id FROM block ORDER BY height DESC LIMIT :n) x"
+                            + " GROUP BY miner_script_id ORDER BY n DESC")
+                    .bind("n", blocks)
+                    .map((rs, ctx) -> Map.entry(rs.getLong("miner_script_id"), rs.getInt("n")))
+                    .forEach(e -> out.put(e.getKey(), e.getValue()));
+            return out;
+        });
     }
 
 }

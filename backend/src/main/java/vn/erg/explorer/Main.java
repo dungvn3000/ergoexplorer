@@ -1,6 +1,5 @@
 package vn.erg.explorer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jooby.Environment;
 import io.jooby.Jooby;
 import io.jooby.ServerOptions;
@@ -9,8 +8,10 @@ import io.jooby.guice.GuiceModule;
 import io.jooby.handler.CorsHandler;
 import io.jooby.mcp.McpInspectorModule;
 import io.jooby.mcp.McpModule;
-import io.jooby.mcp.jackson2.McpJackson2Module;
+import io.jooby.mcp.jackson3.McpJackson3Module;
 import io.jooby.netty.NettyServer;
+import tools.jackson.databind.MapperFeature;
+import tools.jackson.databind.json.JsonMapper;
 import vn.erg.explorer.controllers.*;
 import vn.erg.explorer.mcp.ExplorerToolsMcp_;
 import vn.erg.explorer.modules.ExplorerModule;
@@ -36,14 +37,16 @@ public class Main extends Jooby {
 
         Cors cors = new Cors()
                 .setOrigin(env.getConfig().getStringList("cors.origins").toArray(String[]::new))
+                .setUseCredentials(false)   // no cookies or auth: never let a browser send credentials cross-origin
                 .setHeaders("*")
                 .setMethods("GET", "POST");
         use(new CorsHandler(cors));
 
-        // One ObjectMapper for everything: REST answers (JsonModule), MCP (McpJackson2Module) and node JSON parsing.
-        // Registered as a Jooby service, so Jooby's Guice module binds it and services can inject it.
-        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
-        getServices().put(ObjectMapper.class, objectMapper);
+        // One JsonMapper (Jackson 3) for everything: REST answers (JsonModule), MCP (McpJackson3Module) and node JSON
+        // parsing. Registered as a Jooby service, so Jooby's Guice module binds it and services can inject it.
+        // Jackson 3 sorts bean properties alphabetically by default; keep declaration order so answers read as before.
+        JsonMapper objectMapper = JsonMapper.builder().disable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY).build();
+        getServices().put(JsonMapper.class, objectMapper);
 
         // Guice wires services and controllers (every endpoint is public and read-only: no auth filters);
         // JsonModule renders JsonResult and maps its errorCode to the HTTP status
@@ -52,7 +55,7 @@ public class Main extends Jooby {
 
         // MCP server for AI agents (tools in mcp/ExplorerTools, endpoint + transport in application.conf).
         // Stateless streamable HTTP: one POST per call, nothing kept per session — fits the no-tracking policy.
-        install(new McpJackson2Module());
+        install(new McpJackson3Module());
         install(new McpModule(new ExplorerToolsMcp_()).transport(McpModule.Transport.STATELESS_STREAMABLE_HTTP));
         if (env.isActive("dev")) {
             install(new McpInspectorModule().path("/mcp-inspector").defaultServer("ergo-explorer").autoConnect(true));

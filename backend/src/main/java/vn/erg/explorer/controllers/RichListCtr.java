@@ -32,4 +32,11 @@ public class RichListCtr extends BaseCtr {
         return ok(Map.of("items", pageDto.getItems(), "total", pageDto.getTotal(), "synced", index.isSynced(), "indexedHeight", index.indexedHeight()));
     }
 
+    /** Funded addresses and the ERG they hold per balance range (≥ 1M ERG … < 1 ERG); cached five minutes. */
+    @GET(path = "/distribution", produces = MediaType.JSON)
+    public JsonResult distribution() {
+        var d = repo.balanceDistribution();
+        return ok(Map.of("buckets", d.getBuckets(), "addresses", d.getAddresses(), "nanoErg", d.getNanoErg(), "synced", index.isSynced(), "indexedHeight", index.indexedHeight()));
+    }
+
 }

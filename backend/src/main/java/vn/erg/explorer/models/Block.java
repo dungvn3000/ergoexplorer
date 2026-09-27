@@ -1,19 +1,13 @@
 package vn.erg.explorer.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
 /** One main-chain block (header + what the body adds). Reorged blocks are deleted, not flagged. */
 @Getter
 @Setter
-@Entity
-@Table(name = "block")
 public class Block {
 
-    @Id
     private long height;
 
     /** Header id (32 bytes). */

@@ -12,12 +12,12 @@ API and an [MCP](https://modelcontextprotocol.io) server for AI agents.
 
 | directory | what | docs |
 |---|---|---|
-| [`backend/`](backend) | Java 21 · Jooby 4 · Guice · Ebean · MySQL — REST API, chain indexer, MCP server | [backend/README.md](backend/README.md) |
-| [`frontend/`](frontend) | Vue 3 · Quasar 2 single-page app | [frontend/README.md](frontend/README.md) |
+| [`backend/`](backend) | Java 21 · Jooby 4 · Guice · Jdbi · MySQL — REST API, chain indexer, MCP server | [backend/README.md](backend/README.md) |
+| [`frontend/`](frontend) | Vite · React 19 · React Router 7 · Tailwind CSS 4 single-page app | [frontend/README.md](frontend/README.md) |
 
 ## Quick start
 
-Requirements: JDK 21, Maven 3, Node 20+ with Yarn, MySQL 8 or MariaDB 10.6+, and an Ergo full node with
+Requirements: JDK 21, Maven 3, Node 20+ with pnpm (`corepack enable`), MySQL 8 or MariaDB 10.6+, and an Ergo full node with
 the extra indexer enabled (`ergo.node.extraIndex = true`) or access to a public one.
 
 The `backend/conf/` and `backend/deploy/` directories (application config, logback, MySQL tuning, systemd and
@@ -30,11 +30,11 @@ mysql -uroot -e "CREATE DATABASE ergo CHARACTER SET utf8mb4"
 
 # backend on http://localhost:8080 (Flyway creates the schema on first start)
 cd backend
-mvn process-classes && mvn jooby:run
+mvn jooby:run
 
-# frontend on http://localhost:9000, proxied to the backend
+# frontend on http://localhost:5176, /api/v1 proxied to the backend
 cd ../frontend
-yarn && yarn dev
+pnpm install && pnpm dev
 ```
 
 Point `ergo.nodes` in your `application.conf` at your node(s) and set `indexer.enabled = true`
@@ -56,7 +56,7 @@ Every MCP answer carries an `asOf` block (chain height, index height, timestamp,
 ## Contributing
 
 Bugs, wrong figures and missing pool labels are best reported as issues with the block, transaction or
-address in question. Pull requests are welcome; run `yarn lint` in `frontend/` and `mvn package` in
+address in question. Pull requests are welcome; run `pnpm lint` in `frontend/` and `mvn package` in
 `backend/` before opening one.
 
 ## License

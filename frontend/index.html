@@ -2,27 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title><%= productName %> — Ergo blockchain explorer</title>
-    <meta name="description" content="<%= productDescription %>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ergo Explorer — Ergo blockchain explorer</title>
+    <meta
+      name="description"
+      content="Ergo blockchain explorer: blocks, transactions, addresses, EIP-4 tokens, mempool, rich lists and network charts for Ergo mainnet, indexed from full nodes by Ergo Vietnam."
+    />
     <meta name="keywords" content="Ergo, ERG, blockchain explorer, Ergo explorer, blocks, transactions, addresses, tokens, EIP-4, mempool, rich list, hashrate, Autolykos" />
     <meta name="author" content="Ergo Vietnam" />
     <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#1976d2" />
-    <meta name="application-name" content="<%= productName %>" />
-    <meta name="apple-mobile-web-app-title" content="<%= productName %>" />
+    <!-- browser UI colour = the header band -->
+    <meta name="theme-color" content="#121212" />
+    <meta name="application-name" content="Ergo Explorer" />
+    <meta name="apple-mobile-web-app-title" content="Ergo Explorer" />
     <meta name="format-detection" content="telephone=no" />
-    <meta name="msapplication-tap-highlight" content="no" />
-    <meta
-      name="viewport"
-      content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width<% if (ctx.mode.cordova || ctx.mode.capacitor) { %>, viewport-fit=cover<% } %>"
-    />
     <link rel="canonical" href="https://explorer.erg.vn/" />
 
     <!-- Open Graph / Twitter -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="<%= productName %>" />
-    <meta property="og:title" content="<%= productName %> — Ergo blockchain explorer" />
-    <meta property="og:description" content="<%= productDescription %>" />
+    <meta property="og:site_name" content="Ergo Explorer" />
+    <meta property="og:title" content="Ergo Explorer — Ergo blockchain explorer" />
+    <meta
+      property="og:description"
+      content="Ergo blockchain explorer: blocks, transactions, addresses, EIP-4 tokens, mempool, rich lists and network charts for Ergo mainnet, indexed from full nodes by Ergo Vietnam."
+    />
     <meta property="og:url" content="https://explorer.erg.vn/" />
     <meta property="og:image" content="https://explorer.erg.vn/img/og.png" />
     <meta property="og:image:width" content="1200" />
@@ -30,30 +33,45 @@
     <meta property="og:image:alt" content="Ergo Explorer" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="<%= productName %> — Ergo blockchain explorer" />
-    <meta name="twitter:description" content="<%= productDescription %>" />
+    <meta name="twitter:title" content="Ergo Explorer — Ergo blockchain explorer" />
+    <meta
+      name="twitter:description"
+      content="Ergo blockchain explorer: blocks, transactions, addresses, EIP-4 tokens, mempool, rich lists and network charts for Ergo mainnet, indexed from full nodes by Ergo Vietnam."
+    />
     <meta name="twitter:image" content="https://explorer.erg.vn/img/og.png" />
 
-    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png" />
-    <link rel="preconnect" href="https://explorer.erg.vn" />
+    <!-- absolute paths: pages live at /block/…, /tx/…, so relative icon paths would break -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
 
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": "<%= productName %>",
+        "name": "Ergo Explorer",
         "alternateName": "Ergo Explorer by Ergo Vietnam",
         "url": "https://explorer.erg.vn/",
-        "description": "<%= productDescription %>",
+        "description": "Ergo blockchain explorer: blocks, transactions, addresses, EIP-4 tokens, mempool, rich lists and network charts for Ergo mainnet, indexed from full nodes by Ergo Vietnam.",
         "inLanguage": "en",
         "publisher": { "@type": "Organization", "name": "Ergo Vietnam", "url": "https://erg.vn" }
       }
     </script>
+    <script>
+      // set the theme before first paint: saved choice, otherwise the OS preference
+      ;(function () {
+        let t = null
+        try {
+          t = localStorage.getItem('ergo-theme')
+        } catch {}
+        if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.dataset.theme = t
+      })()
+    </script>
   </head>
   <body>
-    <!-- quasar:entry-point -->
+    <div id="app"></div>
     <noscript>Ergo Explorer needs JavaScript: it renders blocks, transactions, addresses and tokens of the Ergo blockchain from a live API.</noscript>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

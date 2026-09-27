@@ -1,6 +1,6 @@
 package vn.erg.explorer.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import vn.erg.explorer.db.ChainRepository;

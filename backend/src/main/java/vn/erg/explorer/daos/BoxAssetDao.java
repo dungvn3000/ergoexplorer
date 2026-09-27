@@ -1,25 +1,24 @@
 package vn.erg.explorer.daos;
 
-import io.ebean.Database;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.models.BoxAsset;
-import vn.erg.explorer.models.BoxAssetId;
-import vn.erg.explorer.models.query.QBoxAsset;
 
 import java.util.List;
 
 @Singleton
-public class BoxAssetDao extends BaseDao<BoxAssetId, BoxAsset> {
+public class BoxAssetDao extends BaseDao<BoxAsset> {
 
     @Inject
-    public BoxAssetDao(Database database) {
-        super(BoxAsset.class, database);
+    public BoxAssetDao(Jdbi jdbi) {
+        super(BoxAsset.class, jdbi);
     }
 
     /** Assets of the given boxes, in (box, asset index) order. */
     public List<BoxAsset> findByBoxGixes(List<Long> gixes) {
-        return gixes.isEmpty() ? List.of() : new QBoxAsset().id.boxGix.in(gixes).orderBy().id.boxGix.asc().id.idx.asc().findList();
+        return gixes.isEmpty() ? List.of()
+                : list("SELECT * FROM box_asset WHERE box_gix IN (<gixes>) ORDER BY box_gix, idx", q -> q.bindList("gixes", gixes));
     }
 
 }

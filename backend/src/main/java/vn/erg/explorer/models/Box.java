@@ -1,8 +1,5 @@
 package vn.erg.explorer.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,11 +10,8 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-@Entity
-@Table(name = "box")
 public class Box {
 
-    @Id
     private long gix;
 
     /** Box hash (32 bytes). */

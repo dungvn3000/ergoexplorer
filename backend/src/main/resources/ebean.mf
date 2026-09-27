@@ -1,3 +1,0 @@
-entity-packages: vn.erg.explorer.models
-transactional-packages: vn.erg.explorer
-querybean-packages: vn.erg.explorer

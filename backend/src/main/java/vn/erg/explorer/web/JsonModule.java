@@ -1,9 +1,9 @@
 package vn.erg.explorer.web;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.type.TypeFactory;
+import tools.jackson.core.exc.StreamReadException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.type.TypeFactory;
 import io.jooby.Body;
 import io.jooby.Context;
 import io.jooby.Extension;
@@ -19,26 +19,26 @@ import java.io.InputStream;
 import java.lang.reflect.Type;
 
 /**
- * JSON encoder / decoder for the REST API on the registry's {@link ObjectMapper}. Unlike the stock Jackson
+ * JSON encoder / decoder for the REST API on the registry's {@link JsonMapper}. Unlike the stock Jackson
  * module it turns a {@link JsonResult} with an {@code errorCode} into that HTTP status, so controllers return
  * {@code notfound()} instead of throwing.
  */
 public class JsonModule implements Extension, MessageDecoder, MessageEncoder {
 
-    private ObjectMapper mapper;
+    private JsonMapper mapper;
 
     private TypeFactory typeFactory;
 
     @Override
     public void install(@NonNull Jooby application) {
-        mapper = application.require(ObjectMapper.class);
+        mapper = application.require(JsonMapper.class);
         typeFactory = mapper.getTypeFactory();
         application.decoder(MediaType.json, this);
         application.encoder(MediaType.json, this);
-        application.errorCode(JsonParseException.class, StatusCode.BAD_REQUEST);
+        application.errorCode(StreamReadException.class, StatusCode.BAD_REQUEST);
     }
 
-    /** After the Guice module, so the ObjectMapper is in the registry. */
+    /** After the Guice module, so the JsonMapper is in the registry. */
     @Override
     public boolean lateinit() {
         return true;

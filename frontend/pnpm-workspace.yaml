@@ -1,0 +1,3 @@
+allowBuilds:
+  # Vite's bundler: its install script only fetches the esbuild binary for this platform
+  esbuild: true

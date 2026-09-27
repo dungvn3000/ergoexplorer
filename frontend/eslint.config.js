@@ -1,73 +1,36 @@
 import js from '@eslint/js'
 import globals from 'globals'
-import pluginVue from 'eslint-plugin-vue'
-import pluginQuasar from '@quasar/app-vite/eslint'
-import prettierSkipFormatting from '@vue/eslint-config-prettier/skip-formatting'
+import react from 'eslint-plugin-react'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import prettier from 'eslint-config-prettier'
 
 export default [
-  {
-    /**
-     * Ignore the following files.
-     * Please note that pluginQuasar.configs.recommended() already ignores
-     * the "node_modules" folder for you (and all other Quasar project
-     * relevant folders and files).
-     *
-     * ESLint requires "ignores" key to be the only one in this object
-     */
-    // ignores: []
-  },
+  { ignores: ['dist', 'node_modules'] },
 
-  ...pluginQuasar.configs.recommended(),
   js.configs.recommended,
-
-  /**
-   * https://eslint.vuejs.org
-   *
-   * pluginVue.configs.base
-   *   -> Settings and rules to enable correct ESLint parsing.
-   * pluginVue.configs[ 'flat/essential']
-   *   -> base, plus rules to prevent errors or unintended behavior.
-   * pluginVue.configs["flat/strongly-recommended"]
-   *   -> Above, plus rules to considerably improve code readability and/or dev experience.
-   * pluginVue.configs["flat/recommended"]
-   *   -> Above, plus rules to enforce subjective community defaults to ensure consistency.
-   */
-  ...pluginVue.configs['flat/essential'],
+  react.configs.flat.recommended,
+  react.configs.flat['jsx-runtime'], // React 17+ JSX transform: no `import React` needed
+  reactHooks.configs.flat.recommended,
+  reactRefresh.configs.vite,
 
   {
+    files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
-
-      globals: {
-        ...globals.browser,
-        ...globals.node, // SSR, Electron, config files
-        process: 'readonly', // process.env.*
-        ga: 'readonly', // Google Analytics
-        cordova: 'readonly',
-        Capacitor: 'readonly',
-        chrome: 'readonly', // BEX related
-        browser: 'readonly', // BEX related
-      },
+      globals: globals.browser,
     },
-
-    // add your custom rules here
+    settings: { react: { version: 'detect' } },
     rules: {
-      'prefer-promise-reject-errors': 'off',
-
-      // allow debugger during development only
-      'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+      'react/prop-types': 'off', // plain JS project without PropTypes
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
 
-  {
-    files: ['src-pwa/custom-service-worker.js'],
-    languageOptions: {
-      globals: {
-        ...globals.serviceworker,
-      },
-    },
-  },
+  // config files run in Node
+  { files: ['*.config.js'], languageOptions: { globals: globals.node } },
 
-  prettierSkipFormatting,
+  // turns off stylistic rules that Prettier owns; keep last
+  prettier,
 ]

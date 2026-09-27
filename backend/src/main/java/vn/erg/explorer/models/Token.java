@@ -1,19 +1,13 @@
 package vn.erg.explorer.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
 /** EIP-4 token: minted by the transaction whose first input box id equals the token id. */
 @Getter
 @Setter
-@Entity
-@Table(name = "token")
 public class Token {
 
-    @Id
     private byte[] id;
 
     /** Issuing box (the first box carrying the token). */

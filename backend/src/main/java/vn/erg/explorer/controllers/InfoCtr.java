@@ -52,6 +52,7 @@ public class InfoCtr extends BaseCtr {
         info.put("peers", node.path("peersCount").asInt());
         info.put("indexedHeight", index.indexedHeight());
         info.put("indexSynced", index.isSynced());
+        info.put("sizeRepairedHeight", repo.sizeRepairedHeight());
         info.put("nodes", nodeClient.nodes().stream().map(n -> Map.of("url", n, "healthy", nodeClient.isHealthy(n))).toList());
         info.put("db", repo.storage());
         return ok(info);

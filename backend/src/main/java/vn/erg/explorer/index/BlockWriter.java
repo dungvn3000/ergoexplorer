@@ -1,6 +1,6 @@
 package vn.erg.explorer.index;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.inject.Inject;
@@ -46,6 +46,8 @@ public class BlockWriter {
     private static final String INSERT_ASSET = "INSERT INTO box_asset (box_gix, idx, token_id, amount) VALUES (?,?,?,?)";
     private static final String INSERT_INPUT = "INSERT INTO tx_input (tx_gix, data_input, idx, box_gix) VALUES (?,?,?,?)";
     private static final String SPEND_BOX = "INSERT INTO box_spent (box_gix, tx_gix, height) VALUES (?,?,?)";
+    private static final String INSERT_UNSPENT = "INSERT INTO box_unspent (script_id, gix) VALUES (?,?)";
+    private static final String DELETE_UNSPENT = "DELETE FROM box_unspent WHERE script_id = ? AND gix = ?";
     private static final String INSERT_TOKEN = """
             INSERT IGNORE INTO token (id, box_gix, tx_gix, block_height, name, description, decimals, emission_amount)
             VALUES (?,?,?,?,?,?,?,?)""";
@@ -394,6 +396,7 @@ public class BlockWriter {
 
                 // 4. inputs: box gix (and, for spends, script/value/assets) from this batch or the DB
                 Map<String, BoxRef> boxes = resolveBoxes(c, refs, batchBoxes);
+                Set<String> spentHere = new HashSet<>();
                 try (PreparedStatement psInput = c.prepareStatement(INSERT_INPUT);
                      PreparedStatement psSpend = c.prepareStatement(SPEND_BOX)) {
                     for (Ref r : refs) {
@@ -412,12 +415,14 @@ public class BlockWriter {
                             psSpend.setLong(2, r.txGix());
                             psSpend.setLong(3, r.height());
                             psSpend.addBatch();
+                            spentHere.add(r.boxId());
                             deltasByDay.get(r.day()).box(box.scriptId(), box.value(), box.assets(), -1, r.day(), r.txGix());
                         }
                     }
                     psInput.executeBatch();
                     psSpend.executeBatch();
                 }
+                writeUnspent(c, batchBoxes, boxes, spentHere);
 
                 // 5. aggregates day by day, snapshot each completed day
                 List<Integer> days = new ArrayList<>(deltasByDay.keySet());
@@ -608,6 +613,39 @@ public class BlockWriter {
     }
 
     /** Every referenced box: from the batch map when created in this batch, otherwise from the DB by hash (chunked IN queries). */
+    /**
+     * box_unspent: outputs of this batch that are still unspent go in (in gix order, appending per script),
+     * earlier boxes spent by this batch go out. A box created and spent inside the batch never gets a row.
+     */
+    private static void writeUnspent(Connection c, Map<String, BoxRef> batchBoxes, Map<String, BoxRef> boxes,
+                                     Set<String> spent) throws SQLException {
+        try (PreparedStatement psAdd = c.prepareStatement(INSERT_UNSPENT);
+             PreparedStatement psDel = c.prepareStatement(DELETE_UNSPENT)) {
+            List<BoxRef> created = new ArrayList<>();
+            batchBoxes.forEach((id, box) -> {
+                if (!spent.contains(id)) {
+                    created.add(box);
+                }
+            });
+            created.sort(Comparator.comparingLong(BoxRef::gix));
+            for (BoxRef box : created) {
+                psAdd.setLong(1, box.scriptId());
+                psAdd.setLong(2, box.gix());
+                psAdd.addBatch();
+            }
+            for (String id : spent) {
+                if (!batchBoxes.containsKey(id)) {
+                    BoxRef box = boxes.get(id);
+                    psDel.setLong(1, box.scriptId());
+                    psDel.setLong(2, box.gix());
+                    psDel.addBatch();
+                }
+            }
+            psAdd.executeBatch();
+            psDel.executeBatch();
+        }
+    }
+
     private Map<String, BoxRef> resolveBoxes(Connection c, List<Ref> refs, Map<String, BoxRef> batchBoxes) throws SQLException {
         Map<String, BoxRef> out = new HashMap<>(batchBoxes);
         List<String> missing = refs.stream().map(Ref::boxId).filter(id -> !out.containsKey(id)).distinct().toList();
@@ -836,6 +874,11 @@ public class BlockWriter {
                 try (PreparedStatement ps = c.prepareStatement("DELETE FROM token_holder WHERE amount <= 0")) {
                     ps.executeUpdate();
                 }
+                // box_unspent: the boxes this block spent are unspent again, its own outputs are gone (in this
+                // order, so an output created and spent inside the block ends without a row)
+                exec(c, "INSERT IGNORE INTO box_unspent (script_id, gix)"
+                        + " SELECT b.script_id, b.gix FROM box_spent s JOIN box b ON b.gix = s.box_gix WHERE s.height = ?", height);
+                exec(c, "DELETE u FROM box_unspent u JOIN box b ON b.script_id = u.script_id AND b.gix = u.gix WHERE b.block_height = ?", height);
                 exec(c, "DELETE FROM box_spent WHERE height = ?", height);
                 exec(c, "DELETE ba FROM box_asset ba JOIN box b ON b.gix = ba.box_gix WHERE b.block_height = ?", height);
                 exec(c, "DELETE FROM box WHERE block_height = ?", height);

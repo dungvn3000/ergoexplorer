@@ -14,11 +14,12 @@
     <properties>
         <lombok.version>1.18.42</lombok.version>
         <jooby.version>4.5.4</jooby.version>
+        <jackson.version>3.2.2</jackson.version>
         <caffeine.version>3.2.2</caffeine.version>
         <hikaricp.version>6.3.0</hikaricp.version>
         <flyway.version>11.20.1</flyway.version>
         <mysql.client.version>9.4.0</mysql.client.version>
-        <ebean.version>18.5.0</ebean.version>
+        <jdbi.version>3.54.0</jdbi.version>
         <bouncycastle.version>1.86</bouncycastle.version>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
@@ -48,21 +49,21 @@
             <artifactId>jooby-logback</artifactId>
         </dependency>
 
-        <!-- MCP server (/api/mcp): explorer tools for AI agents; JSON via the app's Jackson 2 -->
+        <!-- JSON (Jackson 3, tools.jackson): REST answers, node JSON parsing and MCP; version from jackson-bom -->
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <!-- MCP server (/api/mcp): explorer tools for AI agents; JSON via the app's JsonMapper (Jackson 3).
+             jooby-mcp-jackson3 brings jsonschema-generator 5 (the Jackson 3 line) for the tool input schemas. -->
         <dependency>
             <groupId>io.jooby</groupId>
             <artifactId>jooby-mcp</artifactId>
         </dependency>
         <dependency>
             <groupId>io.jooby</groupId>
-            <artifactId>jooby-mcp-jackson2</artifactId>
-        </dependency>
-        <!-- jooby-mcp-jackson2 4.5.4 pulls jsonschema-generator 5 (Jackson 3): its ObjectNodes are not JSON to a
-             Jackson 2 mapper and tool input schemas come out as bean dumps. 4.x is the Jackson 2 line. -->
-        <dependency>
-            <groupId>com.github.victools</groupId>
-            <artifactId>jsonschema-generator</artifactId>
-            <version>4.38.0</version>
+            <artifactId>jooby-mcp-jackson3</artifactId>
         </dependency>
 
         <dependency>
@@ -95,22 +96,11 @@
             <version>${mysql.client.version}</version>
         </dependency>
 
+        <!-- Read side of the index: SQL + bean mapping (daos/, ChartService); writes stay on plain JDBC (index/) -->
         <dependency>
-            <groupId>io.ebean</groupId>
-            <artifactId>ebean-core</artifactId>
-            <version>${ebean.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.ebean</groupId>
-            <artifactId>ebean-querybean</artifactId>
-            <version>${ebean.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.ebean</groupId>
-            <artifactId>ebean-platform-mysql</artifactId>
-            <version>${ebean.version}</version>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-core</artifactId>
+            <version>${jdbi.version}</version>
         </dependency>
 
         <!-- In-memory cache in front of the node (blocks, txs, tokens, addresses are immutable once confirmed) -->
@@ -180,20 +170,12 @@
                             <version>${lombok.version}</version>
                         </path>
                         <path>
-                            <groupId>io.ebean</groupId>
-                            <artifactId>querybean-generator</artifactId>
-                            <version>${ebean.version}</version>
-                        </path>
-                        <path>
                             <groupId>io.jooby</groupId>
                             <artifactId>jooby-apt</artifactId>
                             <version>${jooby.version}</version>
                         </path>
                     </annotationProcessorPaths>
                     <compilerArgs>
-                        <compilerArg>
-                            -AqueryMode=FIELD
-                        </compilerArg>
                         <compilerArg>
                             -Ajooby.debug=false
                         </compilerArg>
@@ -214,14 +196,6 @@
                 <groupId>io.jooby</groupId>
                 <artifactId>jooby-maven-plugin</artifactId>
                 <version>${jooby.version}</version>
-            </plugin>
-
-            <!-- perform ebean enhancement -->
-            <plugin>
-                <groupId>io.ebean</groupId>
-                <artifactId>ebean-maven-plugin</artifactId>
-                <version>${ebean.version}</version>
-                <extensions>true</extensions>
             </plugin>
 
             <plugin>
@@ -247,6 +221,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- First, so every Jackson 3 artifact (also the transitive ones of jooby-mcp-jackson3) is one version -->
+            <dependency>
+                <groupId>tools.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>io.jooby</groupId>
                 <artifactId>jooby-bom</artifactId>

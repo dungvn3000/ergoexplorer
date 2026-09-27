@@ -1,9 +1,10 @@
 package vn.erg.explorer.db;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.daos.*;
 import vn.erg.explorer.dtos.*;
 import vn.erg.explorer.models.*;
@@ -35,12 +36,13 @@ public class ChainRepository {
     private final AddressBalanceDao balances;
     private final TokenHolderDao holders;
     private final IndexerStateDao state;
-    private final ObjectMapper mapper;
+    private final Jdbi jdbi;
+    private final JsonMapper mapper;
 
     @Inject
     public ChainRepository(BlockDao blocks, TxDao txs, BoxDao boxes, BoxAssetDao assets, BoxSpentDao spends, TxInputDao inputs,
                            TokenDao tokens, ScriptDao scripts, AddressBalanceDao balances, TokenHolderDao holders,
-                           IndexerStateDao state, ObjectMapper mapper) {
+                           IndexerStateDao state, Jdbi jdbi, JsonMapper mapper) {
         this.blocks = blocks;
         this.txs = txs;
         this.boxes = boxes;
@@ -52,11 +54,17 @@ public class ChainRepository {
         this.balances = balances;
         this.holders = holders;
         this.state = state;
+        this.jdbi = jdbi;
         this.mapper = mapper;
     }
 
     public long indexedHeight() {
         return state.height();
+    }
+
+    /** Blocks up to this height have their full size ({@code index/BlockSizeRepair}); 0 before it ran. */
+    public long sizeRepairedHeight() {
+        return jdbi.withHandle(h -> h.createQuery("SELECT height FROM size_repair_state WHERE id = 1").mapTo(long.class).findOne().orElse(0L));
     }
 
     // ── storage ──────────────────────────────────────────────
@@ -69,15 +77,17 @@ public class ChainRepository {
     }
 
     private Map<String, Object> loadStorage() {
-        io.ebean.SqlRow r = blocks.db().sqlQuery("SELECT COALESCE(SUM(data_length), 0) AS d, COALESCE(SUM(index_length), 0) AS i, COALESCE(SUM(table_rows), 0) AS r"
-                + " FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name <> 'flyway_schema_history'").findOne();
-        long data = r == null ? 0 : r.getLong("d"), index = r == null ? 0 : r.getLong("i");
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("dataBytes", data);
-        out.put("indexBytes", index);
-        out.put("totalBytes", data + index);
-        out.put("rows", r == null ? 0 : r.getLong("r"));
-        return out;
+        return jdbi.withHandle(h -> h.createQuery("SELECT COALESCE(SUM(data_length), 0) AS d, COALESCE(SUM(index_length), 0) AS i, COALESCE(SUM(table_rows), 0) AS r"
+                        + " FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name != 'flyway_schema_history'")
+                .map((rs, ctx) -> {
+                    long data = rs.getLong("d"), index = rs.getLong("i");
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    out.put("dataBytes", data);
+                    out.put("indexBytes", index);
+                    out.put("totalBytes", data + index);
+                    out.put("rows", rs.getLong("r"));
+                    return out;
+                }).one());
     }
 
     private static String hex(byte[] b) {
@@ -213,10 +223,11 @@ public class ChainRepository {
             if (box == null) {
                 continue;
             }
+            // index stays the box's output index in its creating tx (as the node path and the UI's "#n" mean it);
+            // the input's position in this tx is its place in the list
             BoxDto d = toBox(box, scriptById.get(box.getScriptId()), txHashByGix.get(box.getTxGix()));
-            d.setIndex(ref.getId().getIdx());
             dtosByBox.computeIfAbsent(box.getGix(), k -> new ArrayList<>()).add(d);
-            TxDto t = byGix.get(ref.getId().getTxGix());
+            TxDto t = byGix.get(ref.getTxGix());
             (ref.isDataInput() ? t.getDataInputs() : t.getInputs()).add(d);
         }
 
@@ -237,7 +248,7 @@ public class ChainRepository {
                 .stream().collect(Collectors.toMap(t -> hex(t.getId()), Function.identity()));
         for (BoxAsset a : list) {
             String tokenId = hex(a.getTokenId());
-            for (BoxDto box : dtosByBox.get(a.getId().getBoxGix())) {
+            for (BoxDto box : dtosByBox.get(a.getBoxGix())) {
                 box.getAssets().add(toAsset(tokenId, a.getAmount(), meta.get(tokenId)));
             }
         }
@@ -276,8 +287,7 @@ public class ChainRepository {
         if (regs != null && !regs.isBlank()) {
             try {
                 JsonNode n = mapper.readTree(regs);
-                for (Iterator<Map.Entry<String, JsonNode>> it = n.fields(); it.hasNext(); ) {
-                    Map.Entry<String, JsonNode> e = it.next();
+                for (Map.Entry<String, JsonNode> e : n.properties()) {
                     b.getRegisters().add(Registers.decode(e.getKey(), e.getValue().asText()));
                 }
             } catch (Exception ignored) {
@@ -342,9 +352,9 @@ public class ChainRepository {
             return List.of();
         }
         List<TokenHolder> held = holders.findByScript(s.get().getId());
-        Map<String, Token> meta = tokens.findByHashes(held.stream().map(h -> hex(h.getId().getTokenId())).toList())
+        Map<String, Token> meta = tokens.findByHashes(held.stream().map(h -> hex(h.getTokenId())).toList())
                 .stream().collect(Collectors.toMap(t -> hex(t.getId()), Function.identity()));
-        return held.stream().map(h -> toAsset(hex(h.getId().getTokenId()), h.getAmount(), meta.get(hex(h.getId().getTokenId())))).toList();
+        return held.stream().map(h -> toAsset(hex(h.getTokenId()), h.getAmount(), meta.get(hex(h.getTokenId())))).toList();
     }
 
     /** Richest addresses; items carry rank and balance. */
@@ -362,6 +372,31 @@ public class ChainRepository {
             items.add(h);
         }
         return new PageDto<>(items, balances.countFunded());
+    }
+
+    /** Funded addresses and the ERG they hold per balance range; a full range scan, so cached five minutes. */
+    private final Memo<BalanceDistributionDto> distribution = new Memo<>(Duration.ofMinutes(5), this::loadDistribution);
+
+    public BalanceDistributionDto balanceDistribution() {
+        return distribution.get();
+    }
+
+    private static final String[] BUCKET_LABELS = {"≥ 1M", "100k – 1M", "10k – 100k", "1k – 10k", "100 – 1k", "10 – 100", "1 – 10", "< 1"};
+
+    private BalanceDistributionDto loadDistribution() {
+        long[] floors = AddressBalanceDao.BUCKET_FLOORS;
+        long[][] rows = new long[floors.length][2];
+        for (long[] r : balances.balanceBuckets()) {
+            rows[(int) r[0]] = new long[]{r[1], r[2]};
+        }
+        List<BalanceDistributionDto.BucketDto> buckets = new ArrayList<>();
+        long addresses = 0, nanoErg = 0;
+        for (int i = 0; i < floors.length; i++) {
+            buckets.add(new BalanceDistributionDto.BucketDto(BUCKET_LABELS[i], floors[i], i == 0 ? null : floors[i - 1], rows[i][0], rows[i][1]));
+            addresses += rows[i][0];
+            nanoErg += rows[i][1];
+        }
+        return new BalanceDistributionDto(buckets, addresses, nanoErg);
     }
 
     public long txCount(String address) {
@@ -418,13 +453,13 @@ public class ChainRepository {
     /** Rich list of a token: holders by amount, with rank. */
     public PageDto<TokenDto.HolderDto> holdersPage(String tokenId, int page, int rowsPerPage) {
         List<TokenHolder> list = holders.holders(tokenId, page, rowsPerPage);
-        Map<Long, Script> byId = scriptsOf(list.stream().map(h -> h.getId().getScriptId()).toList());
+        Map<Long, Script> byId = scriptsOf(list.stream().map(h -> h.getScriptId()).toList());
         List<TokenDto.HolderDto> items = new ArrayList<>();
         int rank = (page - 1) * rowsPerPage;
         for (TokenHolder t : list) {
             TokenDto.HolderDto h = new TokenDto.HolderDto();
             h.setRank(++rank);
-            h.setAddress(byId.get(t.getId().getScriptId()).getAddress());
+            h.setAddress(byId.get(t.getScriptId()).getAddress());
             h.setAmount(t.getAmount());
             items.add(h);
         }
@@ -434,11 +469,11 @@ public class ChainRepository {
     public List<TokenDto.TransferDto> recentTransfers(String tokenId, int limit) {
         return tokens.recentTransfers(tokenId, limit).stream().map(r -> {
             TokenDto.TransferDto x = new TokenDto.TransferDto();
-            x.setId(r.getString("tx_id").toLowerCase());
-            x.setHeight(r.getLong("block_height"));
-            x.setTimestamp(r.getLong("timestamp"));
-            x.setTo(r.getString("address"));
-            x.setAmount(r.getLong("amount"));
+            x.setId(r.txId());
+            x.setHeight(r.blockHeight());
+            x.setTimestamp(r.timestamp());
+            x.setTo(r.address());
+            x.setAmount(r.amount());
             return x;
         }).toList();
     }

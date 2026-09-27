@@ -1,25 +1,20 @@
 package vn.erg.explorer.models;
 
-import jakarta.persistence.EmbeddedId;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-/** Reference from a transaction to a box it spends (or reads, for data inputs). */
+/** Reference from a transaction to a box it spends (or reads, for data inputs); key (tx_gix, data_input, idx). */
 @Getter
 @Setter
-@Entity
-@Table(name = "tx_input")
 public class TxInput {
 
-    @EmbeddedId
-    private TxInputId id;
+    private long txGix;
+
+    /** false = spent input, true = read-only data input ({@code data_input} 0 / 1). */
+    private boolean dataInput;
+
+    private int idx;
 
     private long boxGix;
-
-    public boolean isDataInput() {
-        return id != null && id.getDataInput() == 1;
-    }
 
 }

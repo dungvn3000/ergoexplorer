@@ -1,36 +1,34 @@
 package vn.erg.explorer.daos;
 
-import io.ebean.Database;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.models.TokenHolder;
-import vn.erg.explorer.models.TokenHolderId;
-import vn.erg.explorer.models.query.QTokenHolder;
 import vn.erg.explorer.utils.Hex;
 
 import java.util.List;
 
 @Singleton
-public class TokenHolderDao extends BaseDao<TokenHolderId, TokenHolder> {
+public class TokenHolderDao extends BaseDao<TokenHolder> {
 
     @Inject
-    public TokenHolderDao(Database database) {
-        super(TokenHolder.class, database);
+    public TokenHolderDao(Jdbi jdbi) {
+        super(TokenHolder.class, jdbi);
     }
 
     /** All tokens a script (address) holds, biggest raw amount first. */
     public List<TokenHolder> findByScript(long scriptId) {
-        return new QTokenHolder().id.scriptId.eq(scriptId).amount.gt(0).orderBy().amount.desc().findList();
+        return list("SELECT * FROM token_holder WHERE script_id = :s AND amount > 0 ORDER BY amount DESC", q -> q.bind("s", scriptId));
     }
 
     /** Holders of a token, biggest first (rich list page). */
     public List<TokenHolder> holders(String tokenId, int page, int rowsPerPage) {
-        return new QTokenHolder().id.tokenId.eq(Hex.decode(tokenId)).amount.gt(0).orderBy().amount.desc()
-                .setFirstRow((page - 1) * rowsPerPage).setMaxRows(rowsPerPage).findList();
+        return list("SELECT * FROM token_holder WHERE token_id = :t AND amount > 0 ORDER BY amount DESC LIMIT :limit OFFSET :offset",
+                q -> q.bind("t", Hex.decode(tokenId)).bind("limit", rowsPerPage).bind("offset", (long) (page - 1) * rowsPerPage));
     }
 
     public int holderCount(String tokenId) {
-        return new QTokenHolder().id.tokenId.eq(Hex.decode(tokenId)).amount.gt(0).findCount();
+        return count("SELECT COUNT(*) FROM token_holder WHERE token_id = :t AND amount > 0", q -> q.bind("t", Hex.decode(tokenId)));
     }
 
 }

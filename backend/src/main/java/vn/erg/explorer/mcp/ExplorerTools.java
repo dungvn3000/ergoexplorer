@@ -234,6 +234,14 @@ public class ExplorerTools {
     }
 
     /**
+     * How ERG is spread over addresses: funded addresses and ERG held (nanoERG) per balance range, from ≥ 1M ERG down to &lt; 1 ERG.
+     */
+    @McpTool(description = "How ERG is spread over addresses: number of funded addresses and ERG held (nanoERG) per balance range, from >= 1M ERG down to < 1 ERG, plus totals. Needs the chain index; recomputed at most every 5 minutes.")
+    public Stamped<BalanceDistributionDto> getBalanceDistribution() {
+        return live(repo.balanceDistribution());
+    }
+
+    /**
      * Names of the available chart series (hashrate, difficulty, blocks, transactions, fees, emission, circulatingSupply, activeAddresses, mempoolTxs, ...).
      */
     @McpTool(description = "Names of the available chart series (hashrate, difficulty, blocks, transactions, fees, emission, circulatingSupply, activeAddresses, mempoolTxs, ...).")

@@ -2,10 +2,9 @@ package vn.erg.explorer.services;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import io.ebean.Database;
-import io.ebean.SqlRow;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.utils.Emission;
 
 import java.time.Duration;
@@ -48,12 +47,12 @@ public class ChartService {
         DAILY.put("fundedAddresses", new String[]{"addresses", "d.funded_addresses"});
     }
 
-    private final Database db;
+    private final Jdbi jdbi;
     private final Cache<String, Series> cache = Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(1)).maximumSize(200).build();
 
     @Inject
-    public ChartService(Database db) {
-        this.db = db;
+    public ChartService(Jdbi jdbi) {
+        this.jdbi = jdbi;
     }
 
     public List<String> names() {
@@ -95,28 +94,33 @@ public class ChartService {
         };
     }
 
+    /** One point per day from a {@code (day, v)} query; days whose value is NULL (no data yet) are skipped. */
     private Series daily(String name, String unit, String sql, int from) {
-        List<Point> pts = new ArrayList<>();
-        for (SqlRow r : db.sqlQuery(sql).setParameter("from", from).findList()) {
-            Double v = r.getDouble("v");
-            if (v != null) {
-                pts.add(new Point(r.getLong("day") * 86_400_000L, v));
-            }
-        }
+        List<Point> pts = jdbi.withHandle(h -> h.createQuery(sql).bind("from", from)
+                .map((rs, ctx) -> {
+                    double v = rs.getDouble("v");
+                    return rs.wasNull() ? null : new Point(rs.getLong("day") * 86_400_000L, v);
+                })
+                .stream().filter(Objects::nonNull).toList());
         return new Series(name, unit, pts);
     }
 
     /** Circulating supply at the end of each day, from the emission schedule and the last height of the day. */
     private Series circulating(int from) {
-        List<Point> pts = new ArrayList<>();
+        long fromTs = (long) from * 86_400_000L;
         // Last height of each day; issued/reemitted accumulate over the schedule as heights grow
+        List<long[]> days = jdbi.withHandle(h -> h.createQuery("SELECT FLOOR(timestamp / 86400000) AS day, MAX(height) AS h FROM block WHERE timestamp >= :ts GROUP BY day ORDER BY day")
+                .bind("ts", fromTs)
+                .map((rs, ctx) -> new long[]{rs.getLong("day"), rs.getLong("h")})
+                .list());
+        List<Point> pts = new ArrayList<>();
         long issued = 0, reemitted = 0, prevH = 0;
-        for (SqlRow r : db.sqlQuery("SELECT FLOOR(timestamp / 86400000) AS day, MAX(height) AS h FROM block WHERE timestamp >= :ts GROUP BY day ORDER BY day")
-                .setParameter("ts", (long) from * 86_400_000L).findList()) {
-            long h = r.getLong("h");
+        for (long[] d : days) {
+            long h = d[1];
             if (prevH == 0 && from > 0) {
                 // series starts mid-chain: seed with everything before the first day in range
-                long start = db.sqlQuery("SELECT COALESCE(MIN(height), 1) AS h FROM block WHERE timestamp >= :ts").setParameter("ts", (long) from * 86_400_000L).findOne().getLong("h");
+                long start = jdbi.withHandle(hd -> hd.createQuery("SELECT COALESCE(MIN(height), 1) AS h FROM block WHERE timestamp >= :ts")
+                        .bind("ts", fromTs).mapTo(long.class).one());
                 for (long i = 1; i < start; i++) {
                     issued += Emission.emissionAt(i);
                     reemitted += Emission.reemittedAt(i);
@@ -128,18 +132,17 @@ public class ChartService {
                 reemitted += Emission.reemittedAt(i);
             }
             prevH = h;
-            pts.add(new Point(r.getLong("day") * 86_400_000L, issued - reemitted));
+            pts.add(new Point(d[0] * 86_400_000L, issued - reemitted));
         }
         return new Series("circulatingSupply", "ERG", pts);
     }
 
     private Series mempool(String unit, String column, int fromDay) {
-        List<Point> pts = new ArrayList<>();
         // one point per hour (average) to keep the series small
-        for (SqlRow r : db.sqlQuery("SELECT FLOOR(ts / 3600000) * 3600000 AS t, AVG(" + column + ") AS v FROM mempool_sample WHERE ts >= :ts GROUP BY t ORDER BY t")
-                .setParameter("ts", (long) fromDay * 86_400_000L).findList()) {
-            pts.add(new Point(r.getLong("t"), r.getDouble("v")));
-        }
+        List<Point> pts = jdbi.withHandle(h -> h.createQuery("SELECT FLOOR(ts / 3600000) * 3600000 AS t, AVG(" + column + ") AS v FROM mempool_sample WHERE ts >= :ts GROUP BY t ORDER BY t")
+                .bind("ts", (long) fromDay * 86_400_000L)
+                .map((rs, ctx) -> new Point(rs.getLong("t"), rs.getDouble("v")))
+                .list());
         return new Series("mempool" + (column.equals("bytes") ? "Bytes" : "Txs"), unit, pts);
     }
 

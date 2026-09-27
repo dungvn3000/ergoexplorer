@@ -1,6 +1,6 @@
 package vn.erg.explorer.index;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.typesafe.config.Config;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;

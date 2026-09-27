@@ -1,6 +1,6 @@
 package vn.erg.explorer.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.inject.Inject;
@@ -76,6 +76,41 @@ public class BlockService {
             items = Parallel.map(range, this::summary);
         }
         return new PageDto<>(items, tip);
+    }
+
+    /**
+     * Latest confirmed non-coinbase transactions, from the index only (no node call): newest block first,
+     * starting at the indexed tip, at most {@code perBlock} per block, looking at no more than {@code maxScan}
+     * blocks. A block the node has but the indexer has not written yet shows up on the next poll (~10 s);
+     * confirmations are counted from the indexed tip as well.
+     */
+    public List<TxDto> latestIndexedTxs(int limit, int perBlock, int maxScan) {
+        long tip = index.indexedHeight();
+        List<TxDto> out = new ArrayList<>();
+        if (tip < 1) {
+            return out;
+        }
+        for (BlockDto b : repo.blocks(Math.max(1, tip - maxScan + 1), tip)) {
+            if (b.getTxCount() <= 1) {
+                continue;
+            }
+            long confirmations = tip - b.getHeight() + 1;
+            int k = 0;
+            for (TxDto tx : repo.txsOfBlock(b.getHeight())) {
+                if (tx.isCoinbase()) {
+                    continue;
+                }
+                tx.setConfirmations(confirmations);
+                out.add(tx);
+                if (++k >= perBlock || out.size() >= limit) {
+                    break;
+                }
+            }
+            if (out.size() >= limit) {
+                break;
+            }
+        }
+        return out;
     }
 
     public List<BlockDto> latest(int limit) {
