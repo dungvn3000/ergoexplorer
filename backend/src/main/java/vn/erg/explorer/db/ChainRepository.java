@@ -8,9 +8,11 @@ import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.daos.*;
 import vn.erg.explorer.dtos.*;
 import vn.erg.explorer.models.*;
+import vn.erg.explorer.utils.ErgoConstants;
 import vn.erg.explorer.utils.Hex;
 import vn.erg.explorer.utils.Memo;
 import vn.erg.explorer.utils.Registers;
+import vn.erg.explorer.utils.TxKind;
 
 import java.time.Duration;
 import java.util.*;
@@ -233,7 +235,7 @@ public class ChainRepository {
 
         attachAssets(dtosByBox);
         for (TxDto t : byGix.values()) {
-            t.setKind(kindOf(t));
+            t.setKind(TxKind.of(t));
         }
         return new ArrayList<>(byGix.values());
     }
@@ -263,13 +265,6 @@ public class ChainRepository {
             a.setDecimals(meta.getDecimals());
         }
         return a;
-    }
-
-    private static String kindOf(TxDto t) {
-        if (t.isCoinbase()) {
-            return "Block reward";
-        }
-        return t.getOutputs().stream().anyMatch(o -> !o.getAssets().isEmpty()) ? "Token transfer" : "Transfer";
     }
 
     private BoxDto toBox(Box m, Script script, String txHash) {
@@ -374,7 +369,7 @@ public class ChainRepository {
         return new PageDto<>(items, balances.countFunded());
     }
 
-    /** Funded addresses and the ERG they hold per balance range; a full range scan, so cached five minutes. */
+    /** Funded wallet (P2PK) addresses and the ERG they hold per balance range; a full range scan, so cached five minutes. */
     private final Memo<BalanceDistributionDto> distribution = new Memo<>(Duration.ofMinutes(5), this::loadDistribution);
 
     public BalanceDistributionDto balanceDistribution() {
@@ -466,16 +461,61 @@ public class ChainRepository {
         return new PageDto<>(items, holders.holderCount(tokenId));
     }
 
+    /**
+     * One row per transaction moving the token: net flow per address (received in outputs minus sent by inputs),
+     * the biggest sender as from, the biggest receiver as to, the amount = what the receivers gained.
+     */
     public List<TokenDto.TransferDto> recentTransfers(String tokenId, int limit) {
-        return tokens.recentTransfers(tokenId, limit).stream().map(r -> {
+        List<TokenDao.TransferTx> txs = tokens.recentTransferTxs(tokenId, limit);
+        List<Long> gixes = txs.stream().map(TokenDao.TransferTx::txGix).toList();
+        Map<Long, Map<String, Long>> in = byTx(tokens.inputs(tokenId, gixes));
+        Map<Long, Map<String, Long>> out = byTx(tokens.outputs(tokenId, gixes));
+        return txs.stream().map(r -> {
+            Map<String, Long> sent = in.getOrDefault(r.txGix(), Map.of());
+            Map<String, Long> received = out.getOrDefault(r.txGix(), Map.of());
+            Map<String, Long> net = new HashMap<>(received);
+            sent.forEach((addr, amt) -> net.merge(addr, -amt, Long::sum));
+            List<Map.Entry<String, Long>> senders = net.entrySet().stream().filter(e -> e.getValue() < 0)
+                    .sorted(Map.Entry.comparingByValue()).toList();
+            List<Map.Entry<String, Long>> receivers = net.entrySet().stream().filter(e -> e.getValue() > 0)
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed()).toList();
+
             TokenDto.TransferDto x = new TokenDto.TransferDto();
             x.setId(r.txId());
             x.setHeight(r.blockHeight());
             x.setTimestamp(r.timestamp());
-            x.setTo(r.address());
-            x.setAmount(r.amount());
+            x.setMint(sent.isEmpty());
+            long sentTotal = sent.values().stream().mapToLong(Long::longValue).sum();
+            long receivedTotal = received.values().stream().mapToLong(Long::longValue).sum();
+            x.setBurned(Math.max(0, sentTotal - receivedTotal));
+            x.setKind(x.isMint() ? "Token issue"
+                    : x.getBurned() == 0 ? "Token transfer"
+                    : ErgoConstants.REEMISSION_TOKEN.equals(tokenId) ? "Re-emission" : "Token burn");
+            if (!senders.isEmpty()) {
+                x.setFrom(senders.get(0).getKey());
+                x.setFromMore(senders.size() - 1);
+            } else if (!sent.isEmpty()) {
+                // self transfer (boxes merged / split at the same address): nothing changed hands
+                x.setFrom(Collections.max(sent.entrySet(), Map.Entry.comparingByValue()).getKey());
+            }
+            if (!receivers.isEmpty()) {
+                x.setTo(receivers.get(0).getKey());
+                x.setToMore(receivers.size() - 1);
+                x.setAmount(receivers.stream().mapToLong(Map.Entry::getValue).sum());
+            } else if (!received.isEmpty()) {
+                x.setTo(Collections.max(received.entrySet(), Map.Entry.comparingByValue()).getKey());
+                x.setAmount(received.values().stream().mapToLong(Long::longValue).sum());
+            }
             return x;
         }).toList();
+    }
+
+    private static Map<Long, Map<String, Long>> byTx(List<TokenDao.Flow> flows) {
+        Map<Long, Map<String, Long>> m = new HashMap<>();
+        for (TokenDao.Flow f : flows) {
+            m.computeIfAbsent(f.txGix(), k -> new HashMap<>()).merge(f.address(), f.amount(), Long::sum);
+        }
+        return m;
     }
 
     /** Tokens whose name matches (search box). */

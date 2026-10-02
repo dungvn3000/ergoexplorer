@@ -12,6 +12,7 @@ import {
   Table,
   Pill,
   DirBadge,
+  KindPill,
   IdLine,
   RawJsonButton,
   Empty,
@@ -123,7 +124,7 @@ function AddressPage({ d, page }) {
               render: () => (
                 <>
                   {d.txs.length ? (
-                    <Table cols={['Transaction', 'Block', 'Age', '', '>Amount', 'Tokens', '>Fee']}>
+                    <Table cols={['Transaction', 'Block', 'Age', 'Type', '', '>Amount', 'Tokens', '>Fee']}>
                       {d.txs.map((t) => (
                         <tr key={t.id}>
                           <td>
@@ -133,6 +134,7 @@ function AddressPage({ d, page }) {
                             <BlockLink height={t.height} />
                           </td>
                           <td className="text-muted">{ago(t.timestamp)}</td>
+                          <td>{t.kind && <KindPill kind={t.kind} />}</td>
                           <td>
                             <DirBadge dir={t.dir} />
                           </td>

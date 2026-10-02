@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router'
 import { getRichList, getNetworkState, getBalanceDistribution } from '../api.js'
 import { useApi } from '../hooks.js'
 import { Loaded } from '../components/widgets.jsx'
-import { Panel, PanelHead, Aside, Crumbs, PageHead, Sub, Table, Pill, Tag, Stats, Stat, AddressLink, Pager } from '../components/ui.jsx'
+import { Panel, PanelHead, Aside, Crumbs, PageHead, Sub, Table, Pill, Tag, Stats, Stat, AddressLink, Pager, Loading, Empty } from '../components/ui.jsx'
 import { fmtInt, erg, NANO } from '../format.js'
 import { addressLabel } from '../labels.js'
 
@@ -20,12 +20,12 @@ export function RichList() {
   const stats = top.data && net.data ? { top: top.data.items, circ: net.data.circulating * NANO } : null
   return (
     <Loaded q={q} kind="rich list">
-      {(list) => <RichListPage d={list} page={page} stats={stats} dist={dist.data} />}
+      {(list) => <RichListPage d={list} page={page} stats={stats} dist={dist} />}
     </Loaded>
   )
 }
 
-// stats: { top: top-100 items, circ: circulating nanoERG } or null while pending; dist: balance buckets or null
+// stats: { top: top-100 items, circ: circulating nanoERG } or null while pending; dist: the balance-buckets query
 function RichListPage({ d, page, stats, dist }) {
   const circ = stats ? stats.circ : null
   const topItems = stats ? stats.top : null
@@ -49,7 +49,7 @@ function RichListPage({ d, page, stats, dist }) {
         <Stat k="Top 100 hold" v={share(100)} unit="%" d="of circulating supply" />
         <Stat k="Circulating" v={circ ? (circ / NANO / 1e6).toFixed(2) : '—'} unit="M ERG" d="ERG in circulation" />
       </Stats>
-      {dist && <Distribution d={dist} />}
+      <Distribution q={dist} />
       <Panel>
         <PanelHead title="Top addresses" />
         <Table cols={['#', 'Address', '>Balance', 'Share of supply', '>Boxes']}>
@@ -94,38 +94,44 @@ function Row({ x, circ, maxAmount }) {
   )
 }
 
-// funded addresses grouped by balance; shares are of the ERG the buckets hold, so the column adds up to 100%
-function Distribution({ d }) {
+// funded wallet (P2PK, 9...) addresses grouped by balance, contracts left out; shares are of the ERG the buckets hold, so the column adds up to 100%
+function Distribution({ q }) {
+  const d = q.data
   const pct = (part, whole) => (whole ? (part / whole) * 100 : 0)
   const fmtPct = (p) => (p > 0 && p < 0.01 ? '<0.01' : p.toFixed(2)) + '%'
   return (
     <Panel className="mb-5">
-      <PanelHead title="Balance distribution">
-        <Aside>{fmtInt(d.addresses)} funded addresses</Aside>
-      </PanelHead>
-      <Table cols={['Balance (ERG)', '>Addresses', '>% of addresses', '>ERG held', 'Share of ERG']}>
-        {d.buckets.map((b) => {
-          const share = pct(b.nanoErg, d.nanoErg)
-          return (
-            <tr key={b.label}>
-              <td className="font-medium">{b.label}</td>
-              <td className="r">{fmtInt(b.addresses)}</td>
-              <td className="r text-muted">{fmtPct(pct(b.addresses, d.addresses))}</td>
-              <td className="r">
-                {erg(b.nanoErg, b.nanoErg < 1000 * NANO ? 2 : 0)} <span className="text-muted">ERG</span>
-              </td>
-              <td>
-                <div className="flex items-center gap-2.5">
-                  <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-3">
-                    <div className="h-full rounded-full bg-accent" style={{ width: `${share.toFixed(1)}%` }} />
+      <PanelHead title="Balance distribution">{d && <Aside>{fmtInt(d.addresses)} funded wallet addresses (9…), contracts excluded</Aside>}</PanelHead>
+      {/* a full scan of the balances on the server, so it can answer well after the rich list itself */}
+      {d ? (
+        <Table cols={['Balance (ERG)', '>Addresses', '>% of addresses', '>ERG held', 'Share of ERG']}>
+          {d.buckets.map((b) => {
+            const share = pct(b.nanoErg, d.nanoErg)
+            return (
+              <tr key={b.label}>
+                <td className="font-medium">{b.label}</td>
+                <td className="r">{fmtInt(b.addresses)}</td>
+                <td className="r text-muted">{fmtPct(pct(b.addresses, d.addresses))}</td>
+                <td className="r">
+                  {erg(b.nanoErg, b.nanoErg < 1000 * NANO ? 2 : 0)} <span className="text-muted">ERG</span>
+                </td>
+                <td>
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-3">
+                      <div className="h-full rounded-full bg-accent" style={{ width: `${share.toFixed(1)}%` }} />
+                    </div>
+                    <span className="tabular-nums text-muted">{fmtPct(share)}</span>
                   </div>
-                  <span className="tabular-nums text-muted">{fmtPct(share)}</span>
-                </div>
-              </td>
-            </tr>
-          )
-        })}
-      </Table>
+                </td>
+              </tr>
+            )
+          })}
+        </Table>
+      ) : q.error ? (
+        <Empty>Could not load the balance distribution.</Empty>
+      ) : (
+        <Loading />
+      )}
     </Panel>
   )
 }

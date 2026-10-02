@@ -46,7 +46,10 @@ public class TokenService {
             // fetched outside the cache lock (see Memo); a duplicate fetch under a race is harmless
             // DB first; the node only for tokens minted before the indexed range
             cached = repo.token(tokenId).or(() -> node.get("/blockchain/token/byId/" + tokenId).map(this::toMeta));
-            meta.put(tokenId, cached);
+            // a miss is not cached: a token minted in the mempool or the next block shows up later
+            if (cached.isPresent()) {
+                meta.put(tokenId, cached);
+            }
         }
         return cached;
     }
@@ -124,17 +127,31 @@ public class TokenService {
                     return h;
                 }).toList());
 
-        // Recent transfers: newest boxes carrying the token
-        List<TokenDto.TransferDto> transfers = new ArrayList<>();
-        node.get("/blockchain/box/byTokenId/" + tokenId + "?offset=0&limit=12&sortDirection=desc").ifPresent(page -> {
+        // Recent transfers: newest boxes carrying the token, one row per transaction (senders unknown without the index)
+        Map<String, Map<String, Long>> received = new LinkedHashMap<>();
+        Map<String, Long> heights = new HashMap<>();
+        node.get("/blockchain/box/byTokenId/" + tokenId + "?offset=0&limit=50&sortDirection=desc").ifPresent(page -> {
             for (JsonNode box : page.path("items")) {
-                TokenDto.TransferDto x = new TokenDto.TransferDto();
-                x.setId(box.path("transactionId").asText());
-                x.setHeight(box.path("inclusionHeight").asLong());
-                x.setTo(box.path("address").asText());
-                x.setAmount(amountOf(box, tokenId));
-                transfers.add(x);
+                String tx = box.path("transactionId").asText();
+                if (received.size() == 12 && !received.containsKey(tx)) {
+                    break;
+                }
+                heights.put(tx, box.path("inclusionHeight").asLong());
+                received.computeIfAbsent(tx, k -> new HashMap<>()).merge(box.path("address").asText(), amountOf(box, tokenId), Long::sum);
             }
+        });
+        List<TokenDto.TransferDto> transfers = new ArrayList<>();
+        received.forEach((tx, paid) -> {
+            TokenDto.TransferDto x = new TokenDto.TransferDto();
+            x.setId(tx);
+            x.setHeight(heights.get(tx));
+            x.setTo(Collections.max(paid.entrySet(), Map.Entry.comparingByValue()).getKey());
+            x.setToMore(paid.size() - 1);
+            x.setAmount(paid.values().stream().mapToLong(Long::longValue).sum());
+            x.setMint(tx.equals(t.getIssueTx()));
+            // inputs are unknown here, so a burn cannot be told from a transfer
+            x.setKind(x.isMint() ? "Token issue" : "Token transfer");
+            transfers.add(x);
         });
         List<Long> stamps = Parallel.map(transfers, x -> headers.timestampAt(x.getHeight()));
         for (int i = 0; i < transfers.size(); i++) {

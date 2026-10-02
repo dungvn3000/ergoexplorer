@@ -27,6 +27,7 @@ import {
   TokenIcon,
   TokenLink,
   PagerButtons,
+  KindPill,
 } from '../components/ui.jsx'
 import { fmtInt, ago, short, tokAmt } from '../format.js'
 
@@ -143,21 +144,29 @@ function TokenPage({ t }) {
         <Panel>
           <PanelHead title="Recent transfers" />
           {t.transfers && t.transfers.length ? (
-            <Table cols={['Transaction', 'Block', 'To', '>Amount']}>
-              {/* one transaction can pay the same address in several outputs, so the row key includes the position */}
-              {t.transfers.map((x, i) => (
-                <tr key={`${x.id}:${i}`}>
+            <Table cols={['Transaction', 'From', 'To', '>Amount']}>
+              {t.transfers.map((x) => (
+                <tr key={x.id}>
                   <td>
-                    <TxLink id={x.id} a={8} b={6} />
-                    <div className="text-xs text-muted">{ago(x.timestamp)}</div>
+                    <div className="flex items-center gap-2">
+                      <TxLink id={x.id} a={8} b={6} />
+                      {x.kind && <KindPill kind={x.kind} />}
+                    </div>
+                    <div className="text-xs text-muted">
+                      <BlockLink height={x.height} /> · {ago(x.timestamp)}
+                    </div>
                   </td>
                   <td>
-                    <BlockLink height={x.height} />
+                    <Party address={x.from} more={x.fromMore} empty={x.mint ? 'Mint' : '—'} />
                   </td>
                   <td>
-                    <AddressLink address={x.to} a={8} b={5} />
+                    <Party address={x.to} more={x.toMore} empty={x.burned > 0 ? <span className="text-crit">Burned</span> : '—'} />
                   </td>
-                  <td className="r">{tokAmt(x.amount, t.decimals)}</td>
+                  <td className="r">
+                    {/* a burn with no receiver shows what was destroyed; a partial burn adds it under the amount moved */}
+                    {x.to ? tokAmt(x.amount, t.decimals) : tokAmt(x.burned, t.decimals)}
+                    {x.to && x.burned > 0 && <div className="text-xs text-crit">{tokAmt(x.burned, t.decimals)} burned</div>}
+                  </td>
                 </tr>
               ))}
             </Table>
@@ -167,6 +176,17 @@ function TokenPage({ t }) {
         </Panel>
       </div>
     </main>
+  )
+}
+
+// one side of a transfer: the biggest sender / receiver, "+N" for the others of the transaction
+function Party({ address, more, empty }) {
+  if (!address) return <span className="text-muted">{empty}</span>
+  return (
+    <>
+      <AddressLink address={address} a={6} b={4} />
+      {more > 0 && <span className="text-xs text-muted"> +{more}</span>}
+    </>
   )
 }
 

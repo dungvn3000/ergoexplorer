@@ -22,7 +22,7 @@ const ENDPOINTS = [
   ['/tokens/{tokenId}/holders', 'All holders of a token'],
   ['/mempool/transactions', 'Unconfirmed transactions'],
   ['/richlist?page=1&rowsPerPage=50', 'Addresses ranked by ERG balance'],
-  ['/richlist/distribution', 'Funded addresses and ERG held per balance range'],
+  ['/richlist/distribution', 'Funded wallet (P2PK) addresses and ERG held per balance range'],
   ['/charts', 'Chart names'],
   ['/charts/{name}?days=30', 'Daily chart series; days=0 for all history'],
   ['/search?q=…', 'What a string is: block, transaction, token, box or address'],

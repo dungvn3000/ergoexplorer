@@ -11,6 +11,8 @@ public class AddressTxDto {
     private String id;
     private long height;
     private long timestamp;
+    /** Block reward / Transfer / Token transfer / Token issue / Token burn / Re-emission (see TxKind) */
+    private String kind;
     /** in / out / self */
     private String dir;
     /** Net nanoERG change for the address (negative when sent). */

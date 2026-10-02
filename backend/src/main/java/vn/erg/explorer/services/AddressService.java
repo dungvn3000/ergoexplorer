@@ -187,6 +187,7 @@ public class AddressService {
         v.setId(tx.getId());
         v.setHeight(tx.getHeight());
         v.setTimestamp(tx.getTimestamp());
+        v.setKind(tx.getKind());
         v.setFee(tx.getFee());
 
         long in = 0, out = 0;

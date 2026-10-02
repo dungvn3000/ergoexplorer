@@ -33,7 +33,19 @@ public class TokenDto {
         private String id;
         private long height;
         private long timestamp;
+        /** Biggest sender (null for a mint); fromMore = other senders. */
+        private String from;
+        private int fromMore;
+        /** Biggest receiver; toMore = other receivers. */
         private String to;
+        private int toMore;
+        /** Net amount the receivers gained (the whole output for a self transfer). */
         private long amount;
+        /** Issuing transaction: no input carried the token. */
+        private boolean mint;
+        /** Raw amount destroyed: inputs carried more than the outputs re-created (a burn with no receiver has to = null). */
+        private long burned;
+        /** What the transaction did to this token: Token issue / Token burn / Re-emission / Token transfer. */
+        private String kind;
     }
 }

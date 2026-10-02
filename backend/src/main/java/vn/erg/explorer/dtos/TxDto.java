@@ -14,7 +14,7 @@ public class TxDto {
     private Integer index;
     private long size;
     private long fee;
-    /** Block reward / Transfer / Token transfer */
+    /** Block reward / Transfer / Token transfer / Token issue / Token burn / Re-emission */
     private String kind;
     private boolean coinbase;
     private boolean pending;

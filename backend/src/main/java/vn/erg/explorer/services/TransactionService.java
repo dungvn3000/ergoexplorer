@@ -12,6 +12,7 @@ import vn.erg.explorer.dtos.BoxDto;
 import vn.erg.explorer.dtos.TxDto;
 import vn.erg.explorer.node.NodeClient;
 import vn.erg.explorer.utils.ErgoConstants;
+import vn.erg.explorer.utils.TxKind;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -108,7 +109,7 @@ public class TransactionService {
             tx.getOutputs().add(box);
         }
         tx.setFee(feeOf(tx));
-        tx.setKind(kindOf(tx));
+        tx.setKind(TxKind.of(tx));
         return tx;
     }
 
@@ -134,7 +135,7 @@ public class TransactionService {
         }
         tx.setCoinbase(isCoinbase(tx));
         tx.setFee(feeOf(tx));
-        tx.setKind(kindOf(tx));
+        tx.setKind(TxKind.of(tx));
     }
 
     /** The emission transaction: spends the emission box back to itself plus the miner reward (see BlockWriter.coinbaseIndex). */
@@ -152,14 +153,6 @@ public class TransactionService {
             }
         }
         return fee;
-    }
-
-    static String kindOf(TxDto tx) {
-        if (tx.isCoinbase()) {
-            return "Block reward";
-        }
-        boolean tokens = tx.getOutputs().stream().anyMatch(o -> !o.getAssets().isEmpty());
-        return tokens ? "Token transfer" : "Transfer";
     }
 
 }
