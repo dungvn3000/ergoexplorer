@@ -1,4 +1,5 @@
-// Shared formatting. Amounts from the API are nanoERG; token amounts are raw integers.
+// Shared formatting. Amounts from the API are nanoERG; token amounts are raw integers sent as decimal strings
+// (they go up to 2^63, past what a JavaScript number holds exactly), so they are formatted with BigInt.
 export const NANO = 1e9
 
 export const fmtInt = (n) => Number(n).toLocaleString('en-US')
@@ -8,9 +9,26 @@ export const erg = (nano, maxDec = 9) => (Number(nano) / NANO).toLocaleString('e
 
 // decimals (R6) is user-written on-chain data: clamp to what toLocaleString accepts
 export const clampDecimals = (d) => Math.min(20, Math.max(0, Number.isFinite(Number(d)) ? Math.trunc(Number(d)) : 0))
+// raw amount as a BigInt: a decimal string from the API, or a plain number
+const toBig = (x) => {
+  const s = String(x ?? 0)
+  return /^-?\d+$/.test(s) ? BigInt(s) : BigInt(Math.trunc(Number(x)) || 0)
+}
+
+// raw token amount → "1,234.5678" with the token's decimals, every digit kept
 export const tokAmt = (amount, decimals) => {
   const d = clampDecimals(decimals)
-  return (Number(amount) / Math.pow(10, d)).toLocaleString('en-US', { maximumFractionDigits: d })
+  const v = toBig(amount)
+  const digits = (v < 0n ? -v : v).toString().padStart(d + 1, '0')
+  const int = BigInt(digits.slice(0, digits.length - d)).toLocaleString('en-US')
+  const frac = digits.slice(digits.length - d).replace(/0+$/, '')
+  return (v < 0n ? '-' : '') + int + (frac ? '.' + frac : '')
+}
+
+// part / whole of two raw token amounts as "12.34%", or null when whole is 0
+export const tokShare = (part, whole) => {
+  const w = toBig(whole)
+  return w === 0n ? null : (Number((toBig(part) * 10000n) / w) / 100).toFixed(2) + '%'
 }
 
 export const bytes = (n) => (n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(2) + ' MB' : (n / 1073741824).toFixed(2) + ' GB')

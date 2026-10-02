@@ -9,6 +9,7 @@ import jakarta.inject.Singleton;
 import vn.erg.explorer.db.ChainRepository;
 import vn.erg.explorer.node.NodeClient;
 import vn.erg.explorer.services.BoxMapper;
+import vn.erg.explorer.utils.Hex;
 import vn.erg.explorer.web.JsonResult;
 
 import static vn.erg.explorer.web.JsonResult.notfound;
@@ -29,6 +30,9 @@ public class BoxCtr extends BaseCtr {
     /** DB first, then the node's indexer. */
     @GET(path = "/{id}", produces = MediaType.JSON)
     public JsonResult get(@PathParam String id) {
+        if (!Hex.isHex64(id)) {
+            return notfound();
+        }
         return repo.box(id).map(JsonResult::new)
                 .or(() -> node.get("/blockchain/box/byId/" + id).map(n -> new JsonResult(boxes.map(n, 0))))
                 .orElseGet(() -> notfound());

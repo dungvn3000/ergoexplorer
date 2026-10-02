@@ -213,6 +213,12 @@ public class BlockWriter {
     private final DataSource ds;
     /** ErgoTree hex -> script id; contracts repeat constantly, so this hits almost always. */
     private final Cache<String, Long> scripts = Caffeine.newBuilder().maximumSize(500_000).build();
+    /**
+     * Script ids given out by the open transaction: moved to {@link #scripts} only once it commits. A rolled-back batch
+     * takes its script rows with it and the next one numbers from MAX(id)+1 again, so a cached id of a row that never
+     * committed would later point at another address's script.
+     */
+    private final Map<String, Long> pendingScripts = new HashMap<>();
     private long nextBoxGix = -1;
     private long nextTxGix = -1;
     private long nextScriptId = -1;
@@ -264,10 +270,17 @@ public class BlockWriter {
     }
 
     private void resetCounters() {
+        pendingScripts.clear();
         nextBoxGix = -1;
         nextTxGix = -1;
         nextScriptId = -1;
         lastDay = -1;
+    }
+
+    /** The open transaction committed: its new script ids are real rows now. */
+    private void publishScripts() {
+        scripts.putAll(pendingScripts);
+        pendingScripts.clear();
     }
 
     private static long maxOf(Connection c, String sql) throws SQLException {
@@ -287,6 +300,9 @@ public class BlockWriter {
         List<String> missing = new ArrayList<>();
         for (String tree : trees) {
             Long id = scripts.getIfPresent(tree);
+            if (id == null) {
+                id = pendingScripts.get(tree);
+            }
             if (id != null) {
                 out.put(tree, id);
             } else {
@@ -327,7 +343,7 @@ public class BlockWriter {
                     while (rs.next()) {
                         String tree = treeByHashHex.get(Hex.encode(rs.getBytes(2)));
                         out.put(tree, rs.getLong(1));
-                        scripts.put(tree, rs.getLong(1));
+                        pendingScripts.put(tree, rs.getLong(1));
                     }
                 }
             }
@@ -446,6 +462,7 @@ public class BlockWriter {
                     }
                 }
                 c.commit();
+                publishScripts();
             } catch (SQLException | RuntimeException e) {
                 c.rollback();
                 resetCounters(); // re-read from the DB next time (another writer may have used our key ranges)
@@ -489,6 +506,17 @@ public class BlockWriter {
             long txGix = nextTxGix++;
             long fee = 0;
             String firstInput = tx.path("inputs").isEmpty() ? null : tx.path("inputs").get(0).path("boxId").asText();
+            // a mint may spread the new token over several outputs: the supply is their sum, recorded once
+            // (metadata from the first output carrying it, the issuing box)
+            long minted = 0;
+            for (JsonNode out : tx.path("outputs")) {
+                for (JsonNode a : out.path("assets")) {
+                    if (a.path("tokenId").asText().equals(firstInput)) {
+                        minted += a.path("amount").asLong();
+                    }
+                }
+            }
+            boolean mintRecorded = false;
             int oi = 0;
             for (JsonNode out : tx.path("outputs")) {
                 String tree = out.path("ergoTree").asText();
@@ -521,9 +549,10 @@ public class BlockWriter {
                     psAsset.setBytes(3, Hex.decode(tokenId));
                     psAsset.setLong(4, a.path("amount").asLong());
                     psAsset.addBatch();
-                    if (tokenId.equals(firstInput)) {
-                        addToken(psToken, tokenId, gix, txGix, height, regs, a.path("amount").asLong());
+                    if (tokenId.equals(firstInput) && !mintRecorded) {
+                        addToken(psToken, tokenId, gix, txGix, height, regs, minted);
                         dayStats[10]++;
+                        mintRecorded = true;
                     }
                 }
                 oi++;
@@ -762,6 +791,7 @@ public class BlockWriter {
                 }
                 deltas.apply(c);
                 c.commit();
+                publishScripts();
                 log.info("Indexed {} genesis boxes", boxes.size());
             } catch (SQLException | RuntimeException e) {
                 c.rollback();
@@ -815,7 +845,6 @@ public class BlockWriter {
         try (Connection c = ds.getConnection()) {
             c.setAutoCommit(false);
             try {
-                exec(c, "DELETE FROM token WHERE block_height = ?", height);
                 // address_tx rows of the block's txs, then the counters of the addresses involved recomputed from what is left
                 List<Long> touched = new ArrayList<>();
                 try (PreparedStatement ps = c.prepareStatement("SELECT DISTINCT a.script_id FROM address_tx a JOIN tx t ON t.gix = a.tx_gix WHERE t.block_height = ?")) {
@@ -870,6 +899,8 @@ public class BlockWriter {
                         + " -(SELECT COUNT(*) FROM box x JOIN box_asset ba ON ba.box_gix = x.gix WHERE x.block_height = b.height),"
                         + " -(SELECT COUNT(*) FROM token t WHERE t.block_height = b.height) FROM block b WHERE b.height = ?"
                         + " ON DUPLICATE KEY UPDATE " + odku, height);
+                // after the daily_stats reversal, which counts the block's tokens for tokens_minted
+                exec(c, "DELETE FROM token WHERE block_height = ?", height);
                 // daily_address is left as is: an address active in a reorged block is almost always active in its replacement
                 try (PreparedStatement ps = c.prepareStatement("DELETE FROM token_holder WHERE amount <= 0")) {
                     ps.executeUpdate();

@@ -125,9 +125,9 @@ public class ExplorerTools {
     }
 
     /**
-     * Current state of the Ergo network: height, hashrate (TH/s), difficulty, average block time, circulating and max supply (nanoERG, EIP-27), mempool size, 30-day hashrate and 24h pool shares.
+     * Current state of the Ergo network: height, hashrate (TH/s), difficulty, average block time, circulating, issued, re-emission-locked and max supply (whole ERG, not nanoERG; EIP-27), mempool size, 30-day hashrate and 24h pool shares.
      */
-    @McpTool(description = "Current state of the Ergo network: height, hashrate (TH/s), difficulty, average block time, circulating and max supply (nanoERG, EIP-27), mempool size, 30-day hashrate and 24h pool shares.")
+    @McpTool(description = "Current state of the Ergo network: height, hashrate (TH/s), difficulty, average block time, circulating, issued, re-emission-locked and max supply (whole ERG, not nanoERG; EIP-27), mempool size, 30-day hashrate and 24h pool shares.")
     public Stamped<NetworkStatsDto> getNetworkState() {
         return live(stats.get());
     }
@@ -212,7 +212,7 @@ public class ExplorerTools {
      * @param page 1-based page (50 holders per page)
      */
     @McpTool(description = "Rich list of a token: holders by raw amount, with rank and address. Needs the chain index.")
-    public Stamped<PageDto<TokenDto.HolderDto>> getTokenHolders(@McpParam(required = true) String id, Integer page) {
+    public Stamped<PageDto<TokenDto.TokenHolderDto>> getTokenHolders(@McpParam(required = true) String id, Integer page) {
         return live(repo.holdersPage(id.trim().toLowerCase(), page(page), 50));
     }
 

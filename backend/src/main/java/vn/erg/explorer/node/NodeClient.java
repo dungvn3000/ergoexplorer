@@ -104,7 +104,16 @@ public class NodeClient {
         return nodes;
     }
 
+    /** Characters of every path we build (ids, base58 addresses, query strings); anything else came from a user. */
+    private static final java.util.regex.Pattern SAFE_PATH = java.util.regex.Pattern.compile("[A-Za-z0-9/?=&_.-]+");
+
     private Optional<JsonNode> send(String path, HttpRequest.BodyPublisher body, String method) {
+        // ids from URLs reach here decoded ("..%2Fpeers%2Fall" -> "../peers/all"): such a path would leave the endpoint
+        // it was built for, so it is answered as unknown without asking any node
+        if (!SAFE_PATH.matcher(path).matches() || path.contains("..")) {
+            log.debug("Refused node path {}", path);
+            return Optional.empty();
+        }
         NodeException last = null;
         for (int idx : order()) {
             String base = nodes.get(idx);
@@ -132,7 +141,12 @@ public class NodeClient {
                 }
                 if (status >= 200 && status < 300) {
                     downUntil.set(idx, 0);
-                    return Optional.of(mapper.readTree(response.body()));
+                    try {
+                        return Optional.of(mapper.readTree(response.body()));
+                    } catch (RuntimeException e) {
+                        // the node is fine, the endpoint just does not answer JSON: no other node would either
+                        throw new NodeException(base + path + " -> not JSON", e);
+                    }
                 }
                 // 400 from the indexer also means "unknown id" for some endpoints — treat as not found
                 if (status == 400) {
@@ -142,6 +156,8 @@ public class NodeClient {
                 last = new NodeException(base + path + " -> HTTP " + status, status);
                 markDown(idx);
                 log.warn("Node {} answered {} for {} — out of rotation for {}s", base, status, path, COOLDOWN.toSeconds());
+            } catch (NodeException e) {
+                throw e;
             } catch (IOException | RuntimeException e) {
                 last = new NodeException(base + path + " -> " + e.getMessage(), e);
                 markDown(idx);

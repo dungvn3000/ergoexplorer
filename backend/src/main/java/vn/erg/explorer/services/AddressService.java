@@ -3,16 +3,19 @@ package vn.erg.explorer.services;
 import tools.jackson.databind.JsonNode;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
 import vn.erg.explorer.db.ChainRepository;
 import vn.erg.explorer.db.IndexStatus;
 import vn.erg.explorer.dtos.*;
 import vn.erg.explorer.node.NodeClient;
+import vn.erg.explorer.node.NodeException;
 import vn.erg.explorer.utils.ErgoAddress;
 
 import java.util.*;
 import vn.erg.explorer.utils.Parallel;
 
 @Singleton
+@Slf4j
 public class AddressService {
 
     private final NodeClient node;
@@ -64,8 +67,13 @@ public class AddressService {
         a.setFirstSeen(seen[0]);
         a.setLastSeen(seen[1]);
         a.setErgoTree(repo.ergoTree(address));
-        // unconfirmed balance change is only known to the node's mempool
-        node.postText("/blockchain/balance", address).ifPresent(bal -> a.setUnconfirmed(bal.path("unconfirmed").path("nanoErgs").asLong()));
+        // unconfirmed balance change is only known to the node's mempool; everything else is from the DB, so a node
+        // outage leaves just this field empty instead of failing the page
+        try {
+            node.postText("/blockchain/balance", address).ifPresent(bal -> a.setUnconfirmed(bal.path("unconfirmed").path("nanoErgs").asLong()));
+        } catch (NodeException e) {
+            log.warn("Unconfirmed balance of {}: {}", address, e.getMessage());
+        }
         return a;
     }
 
@@ -205,7 +213,8 @@ public class AddressService {
             }
         }
         v.setAmount(in - out);
-        v.setDir(out == 0 ? "in" : in == 0 ? "out" : (in - out) < 0 ? "out" : "self");
+        // by net ERG change: "self" only when the address got back exactly what it spent (only the fee left, paid by others)
+        v.setDir(in > out ? "in" : in < out ? "out" : "self");
         delta.values().stream().filter(t -> t.getAmount() != 0).forEach(v.getTokens()::add);
         return v;
     }

@@ -4,7 +4,7 @@ import { useApi } from '../hooks.js'
 import { Loaded } from '../components/widgets.jsx'
 import { Panel, PanelHead, Aside, Crumbs, PageHead, Sub, Table, Pill, Tag, Stats, Stat, AddressLink, Pager, Loading, Empty } from '../components/ui.jsx'
 import { fmtInt, erg, NANO } from '../format.js'
-import { addressLabel } from '../labels.js'
+import { addressLabel, isNonCirculating } from '../labels.js'
 
 const PER_PAGE = 50
 
@@ -29,7 +29,9 @@ export function RichList() {
 function RichListPage({ d, page, stats, dist }) {
   const circ = stats ? stats.circ : null
   const topItems = stats ? stats.top : null
-  const share = (n) => (circ && topItems ? ((topItems.slice(0, n).reduce((s, x) => s + x.amount, 0) / circ) * 100).toFixed(1) : '—')
+  // top holders of circulating ERG: the re-emission / emission contracts hold ERG that "circulating" excludes
+  const holders = topItems ? topItems.filter((x) => !isNonCirculating(x.address)) : null
+  const share = (n) => (circ && holders ? ((holders.slice(0, n).reduce((s, x) => s + x.amount, 0) / circ) * 100).toFixed(1) : '—')
   const maxAmount = topItems && topItems.length ? topItems[0].amount : d.items[0] ? d.items[0].amount : 1
   return (
     <main className="wrap">
@@ -67,7 +69,8 @@ function RichListPage({ d, page, stats, dist }) {
 }
 
 function Row({ x, circ, maxAmount }) {
-  const pct = circ ? (x.amount / circ) * 100 : null
+  const locked = isNonCirculating(x.address)
+  const pct = circ && !locked ? (x.amount / circ) * 100 : null
   const contract = !x.address.startsWith('9') && !addressLabel(x.address)
   return (
     <tr>
@@ -76,6 +79,7 @@ function Row({ x, circ, maxAmount }) {
         <span className="inline-flex items-center gap-2">
           <AddressLink address={x.address} a={10} b={6} />
           {contract && <Tag>P2S</Tag>}
+          {locked && <Tag>Not circulating</Tag>}
         </span>
       </td>
       <td className="r font-medium">

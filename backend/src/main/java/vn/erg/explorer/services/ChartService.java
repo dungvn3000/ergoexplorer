@@ -1,21 +1,23 @@
 package vn.erg.explorer.services;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.jdbi.v3.core.Jdbi;
 import vn.erg.explorer.utils.Emission;
+import vn.erg.explorer.utils.Memo;
 
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static vn.erg.explorer.utils.ErgoConstants.BLOCK_TIME_SEC;
 import static vn.erg.explorer.utils.ErgoConstants.NANO;
 
 /**
  * Chart series from the daily rollups (daily_stats, daily_address) and mempool samples.
- * Points are {@code {t: epoch millis (UTC day start), v: value}}; results are cached for a minute.
+ * Points are {@code {t: epoch millis (UTC day start), v: value}}. A request for the last N days is cut from the series
+ * of the smallest range in {@link #RANGES} that covers it (else the whole history), each kept for a minute: callers
+ * cannot make the DB compute a new series by varying {@code days}.
  */
 @Singleton
 public class ChartService {
@@ -48,7 +50,11 @@ public class ChartService {
     }
 
     private final Jdbi jdbi;
-    private final Cache<String, Series> cache = Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(1)).maximumSize(200).build();
+    /** Day ranges actually computed (0 = all history); everything else is sliced from one of them. */
+    private static final int[] RANGES = {30, 90, 365};
+
+    /** "name:range" -> series, recomputed a minute after it was made; at most RANGES.length + 1 entries per chart. */
+    private final Map<String, Memo<Series>> cache = new ConcurrentHashMap<>();
 
     @Inject
     public ChartService(Jdbi jdbi) {
@@ -69,13 +75,21 @@ public class ChartService {
         if (!names().contains(name)) {
             return Optional.empty();
         }
-        String key = name + ":" + days;
-        Series s = cache.getIfPresent(key);
-        if (s == null) {
-            s = compute(name, days);
-            cache.put(key, s);
+        int range = 0;
+        for (int r : RANGES) {
+            if (days > 0 && days <= r) {
+                range = r;
+                break;
+            }
         }
-        return Optional.of(s);
+        int computed = range;
+        // Memo: one query per series at a time, run outside any map lock (see Memo)
+        Series s = cache.computeIfAbsent(name + ":" + range, k -> new Memo<>(Duration.ofMinutes(1), () -> compute(name, computed))).get();
+        if (days <= 0 || days == range) {
+            return Optional.of(s);
+        }
+        long from = (System.currentTimeMillis() / 86_400_000L - days) * 86_400_000L;
+        return Optional.of(new Series(s.name(), s.unit(), s.points().stream().filter(p -> p.t() >= from).toList()));
     }
 
     private Series compute(String name, int days) {

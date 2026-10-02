@@ -20,7 +20,10 @@ import vn.erg.explorer.utils.Parallel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Singleton
 public class BlockService {
@@ -85,7 +88,36 @@ public class BlockService {
      * confirmations are counted from the indexed tip as well.
      */
     public List<TxDto> latestIndexedTxs(int limit, int perBlock, int maxScan) {
+        // the feed only changes when a block is indexed: computed once per tip for a short (home page) and a long
+        // list, other limits are a prefix of one of them, so varying the limit cannot make the DB redo the work
+        int size = limit <= LATEST_SHORT ? LATEST_SHORT : Math.max(limit, LATEST_LONG);
         long tip = index.indexedHeight();
+        Latest l = latest.get(size);
+        if (l == null || l.tip() != tip) {
+            latestLock.lock();
+            try {
+                l = latest.get(size);
+                if (l == null || l.tip() != tip) {
+                    l = new Latest(tip, scanLatest(tip, size, perBlock, maxScan));
+                    latest.put(size, l);
+                }
+            } finally {
+                latestLock.unlock();
+            }
+        }
+        return l.txs().subList(0, Math.min(limit, l.txs().size()));
+    }
+
+    private static final int LATEST_SHORT = 10;
+    private static final int LATEST_LONG = 100;
+
+    private record Latest(long tip, List<TxDto> txs) {
+    }
+
+    private final Map<Integer, Latest> latest = new ConcurrentHashMap<>();
+    private final ReentrantLock latestLock = new ReentrantLock();
+
+    private List<TxDto> scanLatest(long tip, int limit, int perBlock, int maxScan) {
         List<TxDto> out = new ArrayList<>();
         if (tip < 1) {
             return out;
@@ -119,7 +151,8 @@ public class BlockService {
 
     /** By height or by id: the DB when indexed, else the node. */
     public Optional<BlockDto> get(String key) {
-        Optional<BlockDto> stored = key.matches("\\d+") ? repo.blockAt(Long.parseLong(key)) : repo.blockById(key);
+        Optional<BlockDto> stored = key.matches("\\d{1,18}") ? repo.blockAt(Long.parseLong(key))
+                : Hex.isHex64(key) ? repo.blockById(key) : Optional.empty();
         if (stored.isPresent()) {
             BlockDto b = finish(stored.get());
             List<TxDto> txs = repo.txsOfBlock(b.getHeight());
@@ -127,9 +160,9 @@ public class BlockService {
             b.setTransactions(txs);
             return Optional.of(b);
         }
-        Optional<JsonNode> header = key.matches("\\d+")
+        Optional<JsonNode> header = key.matches("\\d{1,18}")
                 ? headers.at(Long.parseLong(key))
-                : node.get("/blocks/" + key + "/header");
+                : Hex.isHex64(key) ? node.get("/blocks/" + key + "/header") : Optional.empty();
         return header.map(h -> {
             BlockDto b = summary(h);
             Body body = body(b.getId());
@@ -144,9 +177,9 @@ public class BlockService {
      */
     /** Full block JSON from the node, by height or id. */
     public Optional<JsonNode> raw(String key) {
-        Optional<String> id = key.matches("\\d+")
+        Optional<String> id = key.matches("\\d{1,18}")
                 ? repo.blockAt(Long.parseLong(key)).map(BlockDto::getId).or(() -> headers.at(Long.parseLong(key)).map(h -> h.path("id").asText()))
-                : Optional.of(key);
+                : Hex.isHex64(key) ? Optional.of(key) : Optional.empty();
         return id.flatMap(i -> node.get("/blocks/" + i));
     }
 

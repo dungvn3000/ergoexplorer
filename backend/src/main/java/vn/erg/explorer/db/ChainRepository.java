@@ -441,18 +441,18 @@ public class ChainRepository {
         return holders.holderCount(tokenId);
     }
 
-    public List<TokenDto.HolderDto> topHolders(String tokenId, int limit) {
+    public List<TokenDto.TokenHolderDto> topHolders(String tokenId, int limit) {
         return holdersPage(tokenId, 1, limit).getItems();
     }
 
     /** Rich list of a token: holders by amount, with rank. */
-    public PageDto<TokenDto.HolderDto> holdersPage(String tokenId, int page, int rowsPerPage) {
+    public PageDto<TokenDto.TokenHolderDto> holdersPage(String tokenId, int page, int rowsPerPage) {
         List<TokenHolder> list = holders.holders(tokenId, page, rowsPerPage);
         Map<Long, Script> byId = scriptsOf(list.stream().map(h -> h.getScriptId()).toList());
-        List<TokenDto.HolderDto> items = new ArrayList<>();
+        List<TokenDto.TokenHolderDto> items = new ArrayList<>();
         int rank = (page - 1) * rowsPerPage;
         for (TokenHolder t : list) {
-            TokenDto.HolderDto h = new TokenDto.HolderDto();
+            TokenDto.TokenHolderDto h = new TokenDto.TokenHolderDto();
             h.setRank(++rank);
             h.setAddress(byId.get(t.getScriptId()).getAddress());
             h.setAmount(t.getAmount());

@@ -29,7 +29,7 @@ import {
   PagerButtons,
   KindPill,
 } from '../components/ui.jsx'
-import { fmtInt, ago, short, tokAmt } from '../format.js'
+import { fmtInt, ago, short, tokAmt, tokShare } from '../format.js'
 
 export function Tokens() {
   const q = useApi(getTokens, [])
@@ -217,7 +217,7 @@ function Holders({ token }) {
                 <AddressLink address={h.address} a={10} b={6} />
               </td>
               <td className="r">{tokAmt(h.amount, token.decimals)}</td>
-              <td className="r text-muted">{token.supply ? `${((h.amount / token.supply) * 100).toFixed(2)}%` : '—'}</td>
+              <td className="r text-muted">{tokShare(h.amount, token.supply) ?? '—'}</td>
             </tr>
           ))}
         </Table>

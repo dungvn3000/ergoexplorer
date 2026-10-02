@@ -9,6 +9,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import vn.erg.explorer.services.BlockService;
 import vn.erg.explorer.services.TransactionService;
+import vn.erg.explorer.utils.Hex;
 import vn.erg.explorer.web.JsonResult;
 
 
@@ -42,6 +43,9 @@ public class TransactionCtr extends BaseCtr {
     /** Confirmed or still in the mempool. */
     @GET(path = "/{id}", produces = MediaType.JSON)
     public JsonResult get(@PathParam String id) {
+        if (!Hex.isHex64(id)) {
+            return notfound();
+        }
         return transactions.get(id).map(JsonResult::new).orElseGet(() -> notfound());
     }
 

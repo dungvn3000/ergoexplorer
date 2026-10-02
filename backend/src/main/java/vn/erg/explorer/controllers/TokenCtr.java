@@ -9,6 +9,7 @@ import vn.erg.explorer.db.ChainRepository;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import vn.erg.explorer.services.TokenService;
+import vn.erg.explorer.utils.Hex;
 import vn.erg.explorer.web.JsonResult;
 
 import static vn.erg.explorer.web.JsonResult.notfound;
@@ -32,13 +33,16 @@ public class TokenCtr extends BaseCtr {
 
     @GET(path = "/{id}", produces = MediaType.JSON)
     public JsonResult get(@PathParam String id) {
+        if (!Hex.isHex64(id)) {
+            return notfound();
+        }
         return tokens.detail(id).map(JsonResult::new).orElseGet(() -> notfound());
     }
 
     /** Rich list of a token: holders by amount with rank; `total` = number of holders. Needs a complete index. */
     @GET(path = "/{id}/holders", produces = MediaType.JSON)
     public JsonResult holders(@PathParam String id, @QueryParam Integer page, @QueryParam Integer rowsPerPage) {
-        if (tokens.meta(id).isEmpty()) {
+        if (!Hex.isHex64(id) || tokens.meta(id).isEmpty()) {
             return notfound();
         }
         return ok(repo.holdersPage(id, page(page), rows(rowsPerPage, 50)));

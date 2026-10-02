@@ -13,4 +13,9 @@ const LABELS = {
 
 export const addressLabel = (address, backendLabel) => backendLabel || LABELS[address] || null
 
+// system contracts whose ERG is not in circulation: the emission box (not issued yet) and the EIP-27 re-emission
+// contracts (issued but locked); the "circulating" supply already leaves it out, so shares of it must too
+const NON_CIRCULATING = new Set(Object.keys(LABELS).filter((a) => /^(Emission|Pay-to-reemission|Re-emission)/.test(LABELS[a])))
+export const isNonCirculating = (address) => NON_CIRCULATING.has(address)
+
 export const tokenName = (t) => t.name || short(t.tokenId || t.id, 6, 4)

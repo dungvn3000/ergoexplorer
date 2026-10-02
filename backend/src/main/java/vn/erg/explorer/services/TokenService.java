@@ -121,7 +121,7 @@ public class TokenService {
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .limit(10)
                 .map(e -> {
-                    TokenDto.HolderDto h = new TokenDto.HolderDto();
+                    TokenDto.TokenHolderDto h = new TokenDto.TokenHolderDto();
                     h.setAddress(e.getKey());
                     h.setAmount(e.getValue());
                     return h;
