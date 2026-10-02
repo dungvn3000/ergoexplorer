@@ -66,7 +66,7 @@ export function SearchForm({ variant = 'header' }) {
         autoComplete="off"
         spellCheck={false}
         aria-label="Search"
-        placeholder={hero ? 'Address, transaction, block, box, token or height' : 'Address, transaction, block, token or height'}
+        placeholder={hero ? 'Address, transaction, block, box, token id or name, height' : 'Address, tx, block, token name or height'}
         className={SEARCH_INPUT[variant]}
       />
       {busy && <Spinner className={`absolute ${hero ? 'right-4' : 'right-3'}`} />}

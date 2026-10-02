@@ -15,7 +15,7 @@ Data comes from Ergo full nodes (sv1.erg.vn, sv2.erg.vn) and from the explorer's
 ## MCP server (for AI agents)
 
 - [MCP endpoint](https://explorer.erg.vn/api/mcp): Streamable HTTP, stateless, no authentication. Add it with `claude mcp add --transport http ergo-explorer https://explorer.erg.vn/api/mcp` or `{ "mcpServers": { "ergo-explorer": { "url": "https://explorer.erg.vn/api/mcp" } } }`.
-- Tools: getNetworkState, getBlock, listBlocks, getTransaction, getAddress, getAddressBoxes, getBox, getToken, getTokenHolders, listTokens, getRichList, getBalanceDistribution, listCharts, getChart, getMempool, search, getStatus. Use `search` first when unsure what a string is.
+- Tools: getNetworkState, getBlock, listBlocks, getTransaction, getAddress, getAddressBoxes, getBox, getToken, getTokenHolders, listTokens, searchTokens, getRichList, getBalanceDistribution, listCharts, getChart, getMempool, search, getStatus. Use `search` first when unsure what a string is.
 - Every tool answer is `{ asOf, mutable, data }`. `asOf.height` is the chain height the answer was computed at, `asOf.indexedHeight` the explorer index height (balances, rich lists and charts are computed up to it), `asOf.responseId` a random id per answer. When `mutable` is true (balances, UTXOs, mempool, stats, rich lists, blocks and transactions near the tip) the data is valid only at `asOf.height`. A new block arrives about every 2 minutes: call the tool again instead of reusing an earlier answer, and quote `asOf.height` with any balance.
 
 ## REST API
@@ -29,7 +29,7 @@ Base URL https://explorer.erg.vn/api/v1. Answers are `{ "data": ... }` or `{ "er
 - GET /transactions/latest?limit, GET /transactions/{id} (confirmed or pending).
 - GET /addresses/{address}?page&rowsPerPage: balance, tokens, transaction history. GET /addresses/{address}/boxes: unspent boxes.
 - GET /boxes/{id}: a box with decoded registers R4-R9 and spend status.
-- GET /tokens, GET /tokens/{id}, GET /tokens/{id}/holders?page&rowsPerPage.
+- GET /tokens (featured), GET /tokens?q=name (name contains q, exact names first, with holder counts), GET /tokens/{id}, GET /tokens/{id}/holders?page&rowsPerPage.
 - GET /richlist?page&rowsPerPage: ERG rich list.
 - GET /richlist/distribution: funded addresses and ERG held per balance range (>= 1M ERG down to < 1 ERG).
 - GET /charts, GET /charts/{name}?days: daily series (hashrate, difficulty, blocks, transactions, fees, emission, circulatingSupply, activeAddresses, utxoSize, tokenTransfers, mempoolTxs, ...).

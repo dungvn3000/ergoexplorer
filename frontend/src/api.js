@@ -38,7 +38,8 @@ export const getBox = (id) => get('/boxes/' + enc(id))
 export const getAddress = (address, page = 1, rowsPerPage = 20) => get('/addresses/' + enc(address), { page, rowsPerPage })
 // unspent boxes, newest first: { items, total }
 export const getAddressBoxes = (address, page = 1, rowsPerPage = 20) => get('/addresses/' + enc(address) + '/boxes', { page, rowsPerPage })
-export const getTokens = () => get('/tokens')
+// featured tokens, or with q the tokens whose name contains it
+export const getTokens = (q) => get('/tokens', q ? { q } : undefined)
 export const getToken = (id) => get('/tokens/' + enc(id))
 // { items: [{ rank, address, amount }], total }
 export const getTokenHolders = (id, page = 1, rowsPerPage = 10) => get('/tokens/' + enc(id) + '/holders', { page, rowsPerPage })
@@ -64,10 +65,11 @@ export const getChart = (name, days = 30) => {
 }
 
 // what a search string is → app route, or null
-const SEARCH_ROUTES = { block: '/block/', transaction: '/tx/', address: '/address/', token: '/token/', box: '/box/' }
+// "tokens": several tokens carry that name, id is the search text
+const SEARCH_ROUTES = { block: '/block/', transaction: '/tx/', address: '/address/', token: '/token/', box: '/box/', tokens: '/tokens?q=' }
 export const resolveSearch = async (q) => {
   q = String(q || '').trim()
   if (!q) return null
   const found = await get('/search', { q })
-  return found ? SEARCH_ROUTES[found.type] + found.id : null
+  return found ? SEARCH_ROUTES[found.type] + encodeURIComponent(found.id) : null
 }

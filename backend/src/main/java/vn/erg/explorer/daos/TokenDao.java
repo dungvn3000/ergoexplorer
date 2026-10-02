@@ -37,9 +37,23 @@ public class TokenDao extends BaseDao<Token> {
                 : list("SELECT * FROM token WHERE id IN (<ids>)", q -> q.bindList("ids", ids.stream().map(Hex::decode).toList()));
     }
 
-    /** Exact name match (search box), oldest first. */
-    public List<Token> findByName(String name, int limit) {
-        return list("SELECT * FROM token WHERE name = :name ORDER BY block_height LIMIT :n", q -> q.bind("name", name).bind("n", limit));
+    /** Name matches ranked by holder count; holders are counted for this many best candidates only. */
+    private static final int SEARCH_CANDIDATES = 200;
+
+    /**
+     * Tokens whose name contains {@code text} (the column's collation makes it case-insensitive): exact names first,
+     * then names starting with it, then the rest. Within each group the most held first (copies of a popular name are
+     * many and held by few), then the oldest. Holders are counted (idx_holder_rich range) for the first candidates by
+     * group and age only; the name scan itself reads the token table (one row per token, tens of milliseconds).
+     */
+    public List<Token> searchByName(String text, int limit) {
+        String esc = text.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        return list("SELECT c.* FROM ("
+                        + "SELECT t.*, CASE WHEN t.name = :text THEN 0 WHEN t.name LIKE :prefix ESCAPE '!' THEN 1 ELSE 2 END AS grp"
+                        + " FROM token t WHERE t.name LIKE :any ESCAPE '!' ORDER BY grp, t.block_height LIMIT :cand) c"
+                        + " ORDER BY c.grp, (SELECT COUNT(*) FROM token_holder h WHERE h.token_id = c.id) DESC, c.block_height LIMIT :n",
+                q -> q.bind("any", "%" + esc + "%").bind("prefix", esc + "%").bind("text", text)
+                        .bind("cand", SEARCH_CANDIDATES).bind("n", limit));
     }
 
     /** Newest boxes of a token whose spending transaction is looked up (a primary-key probe of box_spent each). */

@@ -114,7 +114,18 @@ export const Loading = ({ className = '' }) => (
 
 /* ── pills ─────────────────────────────── */
 // one hue per transaction type (the backend emits Block reward / Transfer / Token transfer / Token issue / Token burn / Re-emission)
-const KIND_TONE = { 'Block reward': 'good', Transfer: 'accent', 'Token transfer': 'violet', 'Token issue': 'warn', 'Token burn': 'crit', 'Re-emission': 'good', 'DEX swap': 'teal', 'Bank mint': 'orange', 'Bridge lock': 'rose', Consolidation: 'neutral' }
+const KIND_TONE = {
+  'Block reward': 'good',
+  Transfer: 'accent',
+  'Token transfer': 'violet',
+  'Token issue': 'warn',
+  'Token burn': 'crit',
+  'Re-emission': 'good',
+  'DEX swap': 'teal',
+  'Bank mint': 'orange',
+  'Bridge lock': 'rose',
+  Consolidation: 'neutral',
+}
 const DIR_TONE = { in: 'good', out: 'neutral', self: 'warn' }
 
 export const Pill = ({ tone = 'neutral', children }) => <span className={`pill tone-${tone}`}>{children}</span>

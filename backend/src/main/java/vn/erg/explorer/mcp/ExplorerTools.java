@@ -225,6 +225,15 @@ public class ExplorerTools {
     }
 
     /**
+     * Tokens whose name contains the text (case-insensitive), exact names first, then prefixes, oldest first.
+     * @param name at least 2 characters
+     */
+    @McpTool(description = "Tokens whose name contains the text (case-insensitive): exact names first, then names starting with it, oldest first within each, at most 20, with holder counts. Token names are not unique: copies of a popular name exist, the original is usually the oldest and has the most holders. Needs the chain index.")
+    public Stamped<List<TokenDto>> searchTokens(@McpParam(required = true) String name) {
+        return live(tokens.search(name));
+    }
+
+    /**
      * ERG rich list: addresses by balance (nanoERG) with rank and unspent box count.
      * @param page 1-based page (50 addresses per page)
      */
@@ -268,10 +277,10 @@ public class ExplorerTools {
     }
 
     /**
-     * What a search string is — block height, block id, transaction id, box id, token id or address — so the right tool can be called next.
-     * @param q height, 64-hex id or address
+     * What a search string is — block height, block id, transaction id, box id, token id, address or token name — so the right tool can be called next.
+     * @param q height, 64-hex id, address or token name
      */
-    @McpTool(description = "What a search string is — block height, block id, transaction id, box id, token id or address — so the right tool can be called next.")
+    @McpTool(description = "What a search string is — block height, block id, transaction id, box id, token id, address or token name — so the right tool can be called next. type \"tokens\" means several tokens carry that name: call searchTokens.")
     public Stamped<SearchResultDto> search(@McpParam(required = true) String q) {
         return settled(orFail(search.resolve(q), "Nothing on Ergo mainnet matches '" + q + "' (not a height, id or valid address)"));
     }

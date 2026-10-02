@@ -78,6 +78,18 @@ public class TokenService {
         return a;
     }
 
+    /** Most tokens a name search returns. */
+    public static final int SEARCH_LIMIT = 20;
+
+    /** Tokens by name (case-insensitive, contains): exact first, then prefix, then the rest; empty for under 2 characters. */
+    public List<TokenDto> search(String text) {
+        String s = text == null ? "" : text.strip();
+        if (s.length() < 2 || s.length() > 128 || !index.isSynced()) {
+            return List.of();
+        }
+        return repo.searchTokens(s, SEARCH_LIMIT);
+    }
+
     public List<TokenDto> featured() {
         return Parallel.map(featured, id -> meta(id).orElse(null)).stream().filter(Objects::nonNull).toList();
     }

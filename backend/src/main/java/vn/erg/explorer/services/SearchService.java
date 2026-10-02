@@ -3,13 +3,18 @@ package vn.erg.explorer.services;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import vn.erg.explorer.dtos.SearchResultDto;
+import vn.erg.explorer.dtos.TokenDto;
 import vn.erg.explorer.node.NodeClient;
 import vn.erg.explorer.utils.ErgoAddress;
 import vn.erg.explorer.utils.Hex;
 
+import java.util.List;
 import java.util.Optional;
 
-/** Resolves what a search string is: height, block id, transaction id, box id, token id or address. */
+/**
+ * Resolves what a search string is: height, block id, transaction id, box id, token id, address, or else a token
+ * name ("token" when one token matches, "tokens" with the text as id when several do: names are not unique).
+ */
 @Singleton
 public class SearchService {
 
@@ -52,6 +57,13 @@ public class SearchService {
         }
         if (ErgoAddress.looksLikeAddress(s) && addresses.isValid(s)) {
             return Optional.of(new SearchResultDto("address", s));
+        }
+        List<TokenDto> named = tokens.search(s);
+        if (named.size() == 1) {
+            return Optional.of(new SearchResultDto("token", named.get(0).getId()));
+        }
+        if (!named.isEmpty()) {
+            return Optional.of(new SearchResultDto("tokens", s.strip()));
         }
         return Optional.empty();
     }

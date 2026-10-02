@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { getTokens, getToken, getTokenHolders, API_BASE } from '../api.js'
 import { useApi } from '../hooks.js'
 import { Loaded } from '../components/widgets.jsx'
@@ -31,41 +31,51 @@ import {
 } from '../components/ui.jsx'
 import { fmtInt, ago, short, tokAmt, tokShare } from '../format.js'
 
+// featured tokens; with ?q= (search box, several tokens by that name) the tokens whose name contains it
 export function Tokens() {
-  const q = useApi(getTokens, [])
+  const [params] = useSearchParams()
+  const search = (params.get('q') || '').trim()
+  const q = useApi(() => getTokens(search), [search])
   return (
     <Loaded q={q} kind="tokens">
-      {(tokens) => <TokensPage tokens={tokens} />}
+      {(tokens) => <TokensPage tokens={tokens} search={search} />}
     </Loaded>
   )
 }
 
-function TokensPage({ tokens }) {
+function TokensPage({ tokens, search }) {
   return (
     <main className="wrap">
-      <Crumbs>Tokens</Crumbs>
+      <Crumbs>{search ? <Link to="/tokens">Tokens</Link> : 'Tokens'}</Crumbs>
       <PageHead
-        title={<h1>Tokens</h1>}
+        title={<h1>{search ? `Tokens named “${search}”` : 'Tokens'}</h1>}
         sub={
           <Sub>
-            EIP-4 assets on Ergo · {tokens.length} featured token{tokens.length === 1 ? '' : 's'}
+            {search
+              ? 'Names are not unique: anyone can mint a token with any name. The original is usually the oldest and has the most holders.'
+              : `EIP-4 assets on Ergo · ${tokens.length} featured token${tokens.length === 1 ? '' : 's'} · search any token by name above`}
           </Sub>
         }
       />
       <Panel>
-        <Table cols={['Token', 'Token id', '>Decimals', '>Total supply', '>Issued at']}>
-          {tokens.map((t) => (
-            <tr key={t.id}>
-              <td>
-                <TokenLink id={t.id} name={t.name} />
-              </td>
-              <td className="mono">{short(t.id, 14, 10)}</td>
-              <td className="r">{t.decimals}</td>
-              <td className="r">{tokAmt(t.supply, t.decimals)}</td>
-              <td className="r">{t.issueHeight ? <BlockLink height={t.issueHeight} /> : '—'}</td>
-            </tr>
-          ))}
-        </Table>
+        {tokens.length ? (
+          <Table cols={['Token', 'Token id', '>Decimals', '>Total supply', ...(search ? ['>Holders'] : []), '>Issued at']}>
+            {tokens.map((t) => (
+              <tr key={t.id}>
+                <td>
+                  <TokenLink id={t.id} name={t.name} />
+                </td>
+                <td className="mono">{short(t.id, 14, 10)}</td>
+                <td className="r">{t.decimals}</td>
+                <td className="r">{tokAmt(t.supply, t.decimals)}</td>
+                {search && <td className="r">{t.holderCount != null ? fmtInt(t.holderCount) : '—'}</td>}
+                <td className="r">{t.issueHeight ? <BlockLink height={t.issueHeight} /> : '—'}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty>No token name contains “{search}”. Names need at least 2 characters.</Empty>
+        )}
       </Panel>
     </main>
   )

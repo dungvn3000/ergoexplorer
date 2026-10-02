@@ -25,10 +25,10 @@ public class TokenCtr extends BaseCtr {
     @Inject
     private ChainRepository repo;
 
-    /** Well-known tokens from application.conf (the node cannot list all tokens). */
+    /** Well-known tokens from application.conf, or with {@code q} the tokens whose name contains it (see TokenService.search). */
     @GET(produces = MediaType.JSON)
-    public JsonResult list() {
-        return ok(tokens.featured());
+    public JsonResult list(@QueryParam String q) {
+        return ok(q == null ? tokens.featured() : tokens.search(q));
     }
 
     @GET(path = "/{id}", produces = MediaType.JSON)

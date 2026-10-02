@@ -25,7 +25,8 @@ const ENDPOINTS = [
   ['/richlist/distribution', 'Funded wallet (P2PK) addresses and ERG held per balance range'],
   ['/charts', 'Chart names'],
   ['/charts/{name}?days=30', 'Daily chart series; days=0 for all history'],
-  ['/search?q=…', 'What a string is: block, transaction, token, box or address'],
+  ['/search?q=…', 'What a string is: block, transaction, token, box, address or token name'],
+  ['/tokens?q=…', 'Tokens whose name contains the text, exact names first'],
 ]
 
 // MCP server of the production explorer (backend/, /api/mcp): the same data for AI agents over the Model Context Protocol
@@ -54,7 +55,8 @@ const MCP_TOOLS = [
   ['listCharts', 'available chart series'],
   ['getChart', 'a chart series as {t, v} points'],
   ['getMempool', 'unconfirmed transactions'],
-  ['search', 'what a string is: height, block, tx, box, token or address'],
+  ['search', 'what a string is: height, block, tx, box, token, address or token name'],
+  ['searchTokens', 'tokens by name, exact names first, with holder counts'],
   ['getStatus', 'indexed height and database size'],
 ]
 
@@ -181,7 +183,9 @@ export function Api() {
 
 export function SearchMiss() {
   const { q } = useParams()
-  return <Missing title="No match found" detail={q} text="Nothing on mainnet matches this search. Paste a full block height or id, transaction id, box id, token id or address." />
+  return (
+    <Missing title="No match found" detail={q} text="Nothing on mainnet matches this search. Paste a full block height or id, transaction id, box id, token id or address, or type a token name." />
+  )
 }
 
 export function NotFound() {

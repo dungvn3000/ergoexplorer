@@ -518,9 +518,18 @@ public class ChainRepository {
         return m;
     }
 
-    /** Tokens whose name matches (search box). */
-    public List<TokenDto> tokensByName(String name, int limit) {
-        return tokens.findByName(name, limit).stream().map(this::toToken).toList();
+    /** Tokens whose name contains the text (see TokenDao.searchByName), with holder counts to tell copies apart. */
+    public List<TokenDto> searchTokens(String text, int limit) {
+        return tokens.searchByName(text, limit).stream().map(m -> {
+            TokenDto t = new TokenDto();
+            t.setId(hex(m.getId()));
+            t.setName(m.getName());
+            t.setDecimals(m.getDecimals());
+            t.setSupply(m.getEmissionAmount());
+            t.setIssueHeight(m.getBlockHeight());
+            t.setHolderCount(holders.holderCount(t.getId()));
+            return t;
+        }).toList();
     }
 
 }
